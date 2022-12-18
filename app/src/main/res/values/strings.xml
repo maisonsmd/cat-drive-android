@@ -9,4 +9,6 @@
 
     <!-- Service Preferences -->
     <string name="service_enable">Run services</string>
+    <string name="missing_permissions">Missing permissions</string>
+    <string name="action_settings">Go to notification settings</string>
 </resources>
