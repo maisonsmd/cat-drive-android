@@ -3,13 +3,15 @@ package com.meomeo.catdrive
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import android.util.Log
+import com.meomeo.catdrive.lib.NavigationNotification
+import com.meomeo.catdrive.service.NavigationListener
 
-class MeowGoogleMapNotificationListener : NotificationListenerService() {
-    override fun onNotificationPosted(sbn: StatusBarNotification?) {
-        Log.i("meonoti", "onNotificationPosted: $sbn")
+class MeowGoogleMapNotificationListener : NavigationListener() {
+    init {
+        enabled = true
     }
 
-    override fun onNotificationRemoved(sbn: StatusBarNotification?) {
-        Log.i("meonoti", "onNotificationRemoved: $sbn")
+    override fun onNavigationNotificationUpdated(navNotification: NavigationNotification) {
+        super.onNavigationNotificationUpdated(navNotification)
     }
 }

@@ -1,11 +1,11 @@
 package com.meomeo.catdrive
 
 import android.app.ActivityManager
-import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.provider.Settings
+import androidx.annotation.Nullable
 import androidx.appcompat.app.AppCompatActivity
 import androidx.navigation.findNavController
 import androidx.navigation.ui.AppBarConfiguration
@@ -16,6 +16,8 @@ import com.google.android.material.snackbar.Snackbar
 import com.meomeo.catdrive.databinding.ActivityMainBinding
 import com.meomeo.catdrive.service.BroadcastService
 import timber.log.Timber
+import timber.log.Timber.DebugTree
+
 
 class MainActivity : AppCompatActivity() {
     private lateinit var mBinding: ActivityMainBinding
@@ -67,7 +69,12 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        Timber.plant(Timber.DebugTree())
+        Timber.plant(object : DebugTree() {
+            @Nullable
+            override fun createStackElementTag(element: StackTraceElement): String? {
+                return super.createStackElementTag(element) + ":" + element.lineNumber
+            }
+        })
 
         mBinding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(mBinding.root)
