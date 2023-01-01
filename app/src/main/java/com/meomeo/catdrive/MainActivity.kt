@@ -5,7 +5,6 @@ import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.provider.Settings
-import androidx.annotation.Nullable
 import androidx.appcompat.app.AppCompatActivity
 import androidx.navigation.findNavController
 import androidx.navigation.ui.AppBarConfiguration
@@ -16,8 +15,6 @@ import com.google.android.material.snackbar.Snackbar
 import com.meomeo.catdrive.databinding.ActivityMainBinding
 import com.meomeo.catdrive.service.BroadcastService
 import timber.log.Timber
-import timber.log.Timber.DebugTree
-
 
 class MainActivity : AppCompatActivity() {
     private lateinit var mBinding: ActivityMainBinding
@@ -32,13 +29,13 @@ class MainActivity : AppCompatActivity() {
     }
 
     @Suppress("DEPRECATION")
-    public fun <T> isServiceRunning(service: Class<T>): Boolean {
+    fun <T> isServiceRunning(service: Class<T>): Boolean {
         return (getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager)
             .getRunningServices(Integer.MAX_VALUE)
-            .any { it -> it.service.className == service.name }
+            .any { it.service.className == service.name }
     }
 
-    public fun isBroadcastServiceRunning(): Boolean {
+    fun isBroadcastServiceRunning(): Boolean {
         return isServiceRunning(BroadcastService::class.java)
     }
 
@@ -54,11 +51,12 @@ class MainActivity : AppCompatActivity() {
     private fun showMissingNotificationsAccessSnackbar() {
         Snackbar.make(findViewById(android.R.id.content), R.string.missing_permissions, Snackbar.LENGTH_INDEFINITE)
             .setAction(R.string.action_settings) {
+                @Suppress("DEPRECATION")
                 this.startActivityForResult(Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS"), 0)
             }.show()
     }
 
-    public fun startBroadcastService() {
+    fun startBroadcastService() {
         startService(Intent(applicationContext, BroadcastService::class.java))
     }
 
@@ -69,9 +67,8 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        Timber.plant(object : DebugTree() {
-            @Nullable
-            override fun createStackElementTag(element: StackTraceElement): String? {
+        Timber.plant(object : Timber.DebugTree() {
+            override fun createStackElementTag(element: StackTraceElement): String {
                 return super.createStackElementTag(element) + ":" + element.lineNumber
             }
         })

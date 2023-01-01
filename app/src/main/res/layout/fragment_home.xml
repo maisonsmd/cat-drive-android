@@ -6,17 +6,76 @@
     android:layout_height="match_parent"
     tools:context=".ui.home.HomeFragment">
 
-    <TextView
-        android:id="@+id/text_home"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginStart="8dp"
-        android:layout_marginTop="8dp"
-        android:layout_marginEnd="8dp"
-        android:textAlignment="center"
-        android:textSize="20sp"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
+    <ImageView
+        android:id="@+id/imgTurnIcon"
+        android:layout_width="320px"
+        android:layout_height="320px"
+        android:layout_marginStart="48dp"
+        android:layout_marginTop="116dp"
+        android:layout_marginEnd="23dp"
+        android:background="#000000"
+        android:src="@android:drawable/ic_menu_mapmode"
+        app:layout_constraintEnd_toStartOf="@+id/imgScaled"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
+        app:layout_constraintTop_toTopOf="parent"
+        app:srcCompat="@drawable/roundabout" />
+
+    <TextView
+        android:id="@+id/txtRoadName"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="24dp"
+        android:layout_marginTop="24dp"
+        android:text="Road Name"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/imgTurnIcon" />
+
+    <TextView
+        android:id="@+id/txtNextRoadName"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:text="Next Road"
+        app:layout_constraintStart_toStartOf="@+id/txtRoadName"
+        app:layout_constraintTop_toBottomOf="@+id/txtRoadName" />
+
+    <TextView
+        android:id="@+id/txtDistance"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:text="Distance"
+        app:layout_constraintStart_toStartOf="@+id/txtNextRoadName"
+        app:layout_constraintTop_toBottomOf="@+id/txtNextRoadName" />
+
+    <TextView
+        android:id="@+id/txtEta"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:text="ETA"
+        app:layout_constraintStart_toStartOf="@+id/txtDistance"
+        app:layout_constraintTop_toBottomOf="@+id/txtDistance" />
+
+    <ImageView
+        android:id="@+id/imgFinal"
+        android:layout_width="320px"
+        android:layout_height="320px"
+        android:layout_marginEnd="44dp"
+        android:src="@drawable/common_full_open_on_phone"
+        app:layout_constraintBottom_toBottomOf="@+id/imgTurnIcon"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:srcCompat="@drawable/roundabout" />
+
+    <ImageView
+        android:id="@+id/imgScaled"
+        android:layout_width="320px"
+        android:layout_height="320px"
+        android:layout_marginEnd="23dp"
+        android:background="#615D06"
+        android:src="@drawable/common_full_open_on_phone"
+        app:layout_constraintBottom_toBottomOf="@+id/imgTurnIcon"
+        app:layout_constraintEnd_toStartOf="@+id/imgFinal"
+        app:srcCompat="@drawable/roundabout" />
+
 </androidx.constraintlayout.widget.ConstraintLayout>

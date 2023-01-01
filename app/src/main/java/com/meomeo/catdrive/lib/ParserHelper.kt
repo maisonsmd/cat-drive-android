@@ -71,7 +71,7 @@ object ParserHelper {
             previousSegmentMatched = segmentMatched
         }
 
-        Timber.w(result.toString())
+        // Timber.w(result.toString())
         return result
     }
 }

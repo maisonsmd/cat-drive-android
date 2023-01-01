@@ -1,10 +1,10 @@
 package com.meomeo.catdrive
 
-import android.service.notification.NotificationListenerService
-import android.service.notification.StatusBarNotification
-import android.util.Log
+import android.content.Intent
+import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import com.meomeo.catdrive.lib.NavigationNotification
 import com.meomeo.catdrive.service.NavigationListener
+import timber.log.Timber
 
 class MeowGoogleMapNotificationListener : NavigationListener() {
     init {
@@ -12,6 +12,10 @@ class MeowGoogleMapNotificationListener : NavigationListener() {
     }
 
     override fun onNavigationNotificationUpdated(navNotification: NavigationNotification) {
-        super.onNavigationNotificationUpdated(navNotification)
+        Timber.i("mmmm updated ${navNotification.mNavigationData.nextDirection.toString()}")
+
+        val intent = Intent("${BuildConfig.APPLICATION_ID}.INTENT_NAVIGATION_DATA")
+        intent.putExtra("navigation_data_update", navNotification.mNavigationData)
+        LocalBroadcastManager.getInstance(applicationContext).sendBroadcast(intent)
     }
 }
