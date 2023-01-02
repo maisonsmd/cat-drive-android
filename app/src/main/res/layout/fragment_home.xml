@@ -62,6 +62,7 @@
         android:layout_width="320px"
         android:layout_height="320px"
         android:layout_marginEnd="44dp"
+        android:background="#BBDEFB"
         android:src="@drawable/common_full_open_on_phone"
         app:layout_constraintBottom_toBottomOf="@+id/imgTurnIcon"
         app:layout_constraintEnd_toEndOf="parent"

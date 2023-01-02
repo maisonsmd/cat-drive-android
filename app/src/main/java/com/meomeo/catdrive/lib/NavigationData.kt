@@ -4,7 +4,6 @@ import android.graphics.Bitmap
 import android.os.Parcelable
 import kotlinx.parcelize.Parcelize
 import kotlinx.serialization.Serializable
-import timber.log.Timber
 
 @Parcelize
 @Serializable
@@ -15,7 +14,7 @@ data class NavigationDirection(
 
 @Parcelize
 @Serializable
-data class NavigationTime(
+data class NavigationEta(
     val eta: String? = null,
     val ete: String? = null,
     val distance: String? = null
@@ -53,7 +52,7 @@ data class NavigationTimestamp(
 @Serializable
 data class NavigationData(
     var nextDirection: NavigationDirection = NavigationDirection(),
-    var eta: NavigationTime = NavigationTime(),
+    var eta: NavigationEta = NavigationEta(),
     var actionIcon: NavigationIcon = NavigationIcon(),
     @Mutable
     var postTime: NavigationTimestamp = NavigationTimestamp(),

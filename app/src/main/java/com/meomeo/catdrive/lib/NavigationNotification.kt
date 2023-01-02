@@ -12,8 +12,14 @@ open class NavigationNotification(context: Context, statusBarNotification: Statu
         Context.CONTEXT_IGNORE_SECURITY
     )
 
-    var mNavigationData: NavigationData = NavigationData()
-        private set
+    private var mNavigationData: NavigationData = NavigationData()
+    var navigationData
+        get() = mNavigationData
+        set(value) {
+            if (value == mNavigationData)
+                return
+            mNavigationData = value
+        }
 
     init {
         mNavigationData.postTime = NavigationTimestamp(statusBarNotification.postTime)

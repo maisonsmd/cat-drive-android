@@ -4,6 +4,7 @@ import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import com.meomeo.catdrive.lib.GMAPS_PACKAGE
 import com.meomeo.catdrive.lib.GMapsNotification
+import com.meomeo.catdrive.lib.NavigationData
 import com.meomeo.catdrive.lib.NavigationNotification
 import kotlinx.coroutines.*
 import timber.log.Timber
@@ -33,6 +34,8 @@ open class NavigationListener : NotificationListenerService() {
             Timber.v("Navigation listener enabled: $mEnabled")
         }
 
+    val lastNavigationData: NavigationData? get() = mCurrentNotification?.navigationData
+
     private var notificationsThreshold: Long
         get() = mNotificationsThreshold
         set(value) {
@@ -40,10 +43,6 @@ open class NavigationListener : NotificationListenerService() {
             mNotificationParserCoroutine?.cancel()
             checkActiveNotifications()
         }
-
-    override fun onCreate() {
-        super.onCreate()
-    }
 
     override fun onListenerConnected() {
         super.onListenerConnected()
@@ -130,7 +129,7 @@ open class NavigationListener : NotificationListenerService() {
                     onNavigationNotificationAdded(mapNotification)
                     updated = true
                 } else {
-                    updated = lastNotification.mNavigationData != mapNotification.mNavigationData
+                    updated = lastNotification.navigationData != mapNotification.navigationData
                     Timber.v("Notification is different than previous: $updated")
                 }
 

@@ -95,7 +95,7 @@ internal class GMapsNotification(cx: Context, sbn: StatusBarNotification) : Navi
     }
 
     private fun parseRemoteView(group: ViewGroup): NavigationData {
-        var data = mNavigationData
+        var data = navigationData
 
         val directionText = findChildByName(group, "text") as TextView?
         val etaText = findChildByName(group, "header_text") as TextView?
@@ -108,7 +108,7 @@ internal class GMapsNotification(cx: Context, sbn: StatusBarNotification) : Navi
             val etaList = etaText.text.split("·")
             if (etaList.size == 3) {
                 var distance = etaList[1].trim()
-                data.eta = NavigationTime(etaList[2].trim(), etaList[0].trim(), distance)
+                data.eta = NavigationEta(etaList[2].trim(), etaList[0].trim(), distance)
             }
         }
 
