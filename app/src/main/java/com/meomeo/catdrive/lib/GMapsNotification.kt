@@ -95,19 +95,19 @@ internal class GMapsNotification(cx: Context, sbn: StatusBarNotification) : Navi
     }
 
     private fun parseRemoteView(group: ViewGroup): NavigationData {
-        var data = navigationData
+        val data = navigationData
 
         val directionText = findChildByName(group, "text") as TextView?
         val etaText = findChildByName(group, "header_text") as TextView?
         val titleText = findChildByName(group, "title") as TextView?
-        val timeText = findChildByName(group, "time") as TextView?
+        // val timeText = findChildByName(group, "time") as TextView?
         val rightIcon = findChildByName(group, "right_icon") as ImageView?
 
         // parse ETE & ETA
         if (etaText != null) {
             val etaList = etaText.text.split("·")
             if (etaList.size == 3) {
-                var distance = etaList[1].trim()
+                val distance = etaList[1].trim()
                 data.eta = NavigationEta(etaList[2].trim(), etaList[0].trim(), distance)
             }
         }
@@ -123,7 +123,7 @@ internal class GMapsNotification(cx: Context, sbn: StatusBarNotification) : Navi
             data.actionIcon = NavigationIcon(it.copy(it.config, false))
         }
 
-        Timber.w("${data}")
+        // Timber.v("$data")
 
         return data
     }

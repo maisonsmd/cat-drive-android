@@ -30,8 +30,6 @@ open class NavigationListener : NotificationListenerService() {
             else {
                 mCurrentNotification = null
             }
-
-            Timber.v("Navigation listener enabled: $mEnabled")
         }
 
     val lastNavigationData: NavigationData? get() = mCurrentNotification?.navigationData
@@ -53,7 +51,7 @@ open class NavigationListener : NotificationListenerService() {
         try {
             Timber.d("Checking for active Navigation notifications")
             this.activeNotifications.forEach { statusBarNotification ->
-                Timber.v(statusBarNotification.toString())
+                // Timber.v(statusBarNotification.toString())
                 onNotificationPosted(
                     statusBarNotification
                 )
@@ -64,7 +62,7 @@ open class NavigationListener : NotificationListenerService() {
     }
 
     private fun isGoogleMapsNotification(sbn: StatusBarNotification?): Boolean {
-        Timber.v("enabled ${mEnabled}, isOngoing: ${sbn!!.isOngoing}, id: ${sbn.id}")
+        // Timber.v("enabled ${mEnabled}, isOngoing: ${sbn!!.isOngoing}, id: ${sbn.id}")
         if (!enabled || sbn == null)
             return false
 
@@ -84,13 +82,15 @@ open class NavigationListener : NotificationListenerService() {
     }
 
     override fun onNotificationPosted(sbn: StatusBarNotification?) {
-        Timber.v("onNotificationPosted ${sbn?.packageName}")
+        // Timber.v("onNotificationPosted ${sbn?.packageName}")
+
         if (isGoogleMapsNotification(sbn))
             handleGoogleNotification(sbn!!)
     }
 
     override fun onNotificationRemoved(sbn: StatusBarNotification?) {
-        Timber.v("onNotificationRemoved ${sbn?.packageName}")
+        // Timber.v("onNotificationRemoved ${sbn?.packageName}")
+
         if (isGoogleMapsNotification(sbn)) {
             mNotificationParserCoroutine?.cancel()
 
@@ -104,7 +104,6 @@ open class NavigationListener : NotificationListenerService() {
     }
 
     private fun handleGoogleNotification(statusBarNotification: StatusBarNotification) {
-        Timber.d("handleGoogleNotification")
         mLastNotification = statusBarNotification
         if (mNotificationParserCoroutine != null && mNotificationParserCoroutine!!.isActive)
             return
@@ -130,7 +129,7 @@ open class NavigationListener : NotificationListenerService() {
                     updated = true
                 } else {
                     updated = lastNotification.navigationData != mapNotification.navigationData
-                    Timber.v("Notification is different than previous: $updated")
+                    // Timber.v("Notification is different than previous: $updated")
                 }
 
                 if (updated) {

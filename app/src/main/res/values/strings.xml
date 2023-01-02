@@ -11,4 +11,9 @@
     <string name="service_enable">Run services</string>
     <string name="missing_permissions">Missing permissions</string>
     <string name="action_settings">Go to notification settings</string>
+
+    <string name="permission_access_notification">Accessing notifications</string>
+    <string name="permission_post_notification">Posting notifications</string>
+    <string name="permission_access_location">Accessing location</string>
+
 </resources>

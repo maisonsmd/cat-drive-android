@@ -1,21 +1,61 @@
 package com.meomeo.catdrive.service
 
+import android.Manifest
 import android.app.*
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.graphics.Color
+import android.location.Location
+import android.location.LocationListener
+import android.location.LocationManager
 import android.os.IBinder
+import androidx.core.app.ActivityCompat
+import com.meomeo.catdrive.BuildConfig
 import com.meomeo.catdrive.MainActivity
 import timber.log.Timber
 
-class BroadcastService() : Service() {
+
+class BroadcastService : Service(), LocationListener {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         Timber.v("onStartCommand: $intent")
-        startForeground(1338, buildForegroundNotification());
-        return START_NOT_STICKY
+
+        // TODO: add ".intent" and move to a common intent constants file
+        if (intent?.action == "${BuildConfig.APPLICATION_ID}.enable_services") {
+            startForeground(1201, buildForegroundNotification())
+            subscribeToLocationUpdates()
+        }
+
+        if (intent?.action == "${BuildConfig.APPLICATION_ID}.disable_services") {
+            stopSelf()
+        }
+
+        return START_STICKY
     }
 
-    private fun buildForegroundNotification(): Notification? {
+    private fun subscribeToLocationUpdates() {
+        // copy from main activity
+        fun haveLocationAccessPermission(): Boolean {
+            if (ActivityCompat.checkSelfPermission(
+                    applicationContext,
+                    Manifest.permission.ACCESS_FINE_LOCATION
+                ) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(
+                    applicationContext,
+                    Manifest.permission.ACCESS_COARSE_LOCATION
+                ) != PackageManager.PERMISSION_GRANTED
+            ) {
+                return false
+            }
+            return true
+        }
+
+        if (haveLocationAccessPermission()) {
+            val manager = this.getSystemService(LOCATION_SERVICE) as LocationManager
+            manager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 0, 0f, this)
+        }
+    }
+
+    private fun buildForegroundNotification(): Notification {
         val channelId = createNotificationChannel(
             this::class.java.simpleName,
             this::class.java.simpleName
@@ -37,7 +77,7 @@ class BroadcastService() : Service() {
             .build()
     }
 
-    private fun createNotificationChannel(channelId: String, channelName: String): String? {
+    private fun createNotificationChannel(channelId: String, channelName: String): String {
         val channel = NotificationChannel(channelId, channelName, NotificationManager.IMPORTANCE_DEFAULT)
         channel.lightColor = Color.BLUE
         channel.lockscreenVisibility = Notification.VISIBILITY_PUBLIC
@@ -48,5 +88,10 @@ class BroadcastService() : Service() {
 
     override fun onBind(p0: Intent?): IBinder? {
         return null
+    }
+
+    override fun onLocationChanged(location: Location) {
+        val speed = location.speed * 3600 / 1000
+        Timber.d("$speed km/h")
     }
 }

@@ -7,7 +7,6 @@ import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import com.meomeo.catdrive.lib.NavigationNotification
 import com.meomeo.catdrive.service.NavigationListener
 import timber.log.Timber
-import kotlin.reflect.jvm.internal.impl.load.java.BuiltinSpecialPropertiesKt
 
 class MeowGoogleMapNotificationListener : NavigationListener() {
     private val mBinder = LocalBinder()
@@ -30,20 +29,29 @@ class MeowGoogleMapNotificationListener : NavigationListener() {
         return super.onBind(intent)
     }
 
-    init {
-        enabled = true
-    }
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (intent?.action == "${BuildConfig.APPLICATION_ID}.enable_services") {
+            enabled = true
+        }
+        if (intent?.action == "${BuildConfig.APPLICATION_ID}.disable_services") {
+            enabled = false
+        }
 
-    fun enable(value: Boolean) {
-        Timber.i("enable called: $value")
-        enabled = value
+        return super.onStartCommand(intent, flags, startId)
     }
 
     override fun onNavigationNotificationUpdated(navNotification: NavigationNotification) {
-        Timber.i("mmmm updated ${navNotification.navigationData.nextDirection.toString()}")
+        LocalBroadcastManager.getInstance(applicationContext).sendBroadcast(
+            Intent("${BuildConfig.APPLICATION_ID}.navigation_data").apply {
+                putExtra("navigation_data_update", navNotification.navigationData)
+            }
+        )
+    }
 
-        val intent = Intent("${BuildConfig.APPLICATION_ID}.INTENT_NAVIGATION_DATA")
-        intent.putExtra("navigation_data_update", navNotification.navigationData)
-        LocalBroadcastManager.getInstance(applicationContext).sendBroadcast(intent)
+    override fun onNavigationNotificationRemoved(navNotification: NavigationNotification) {
+        LocalBroadcastManager.getInstance(applicationContext).sendBroadcast(
+            // Empty data (no extras)
+            Intent("${BuildConfig.APPLICATION_ID}.navigation_data")
+        )
     }
 }

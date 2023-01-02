@@ -43,7 +43,7 @@ class BitmapHelper {
         }
 
         val palette = getPalette(source)
-        Timber.d(palette.toString())
+        // Timber.d(palette.toString())
 
         if (palette.size < 2) {
             Timber.e("Unable to dither with this color palette size, min is 2")

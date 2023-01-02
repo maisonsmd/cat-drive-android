@@ -49,7 +49,7 @@ class HomeFragment : Fragment() {
 
     private val navigationReceiver: BroadcastReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent) {
-            Timber.i("mmmm received ${context} - ${intent}")
+            // Timber.i("received ${context} - ${intent}")
             val data = intent.getParcelableExtra("navigation_data_update") as NavigationData?
             displayNavigationData(data)
         }
@@ -57,26 +57,12 @@ class HomeFragment : Fragment() {
 
     fun displayNavigationData(data: NavigationData?) {
         val bh = BitmapHelper()
-        if (data == null) {
-            binding.txtRoadName.text = "unknown"
-            binding.txtNextRoadName.text = "unknown"
-            binding.txtDistance.text = "unknown"
-            binding.txtEta.text = "unknown"
-            binding.imgTurnIcon.setImageBitmap(null)
-            binding.imgScaled.setImageDrawable(null)
-            binding.imgFinal.setImageDrawable(null)
-            return
-        }
 
         val bitmap =
-            if (!mDebugImage) data.actionIcon.bitmap
+            if (!mDebugImage) data?.actionIcon?.bitmap
             else resources.getDrawable(R.drawable.roundabout).toBitmap()
         val compressed = bh.compressBitmap(bitmap, Size(32, 32))
 
-        binding.txtRoadName.text = data.nextDirection.spannedList?.first()
-        binding.txtNextRoadName.text = data.nextDirection.spannedList?.drop(1)?.joinToString(" ")
-        binding.txtDistance.text = data.nextDirection.distance
-        binding.txtEta.text = data.eta.toString()
         binding.imgTurnIcon.setImageBitmap(bitmap)
         binding.imgScaled.setImageDrawable(
             BitmapHelper.AliasingDrawableWrapper(
@@ -84,6 +70,19 @@ class HomeFragment : Fragment() {
             )
         )
         binding.imgFinal.setImageDrawable(BitmapHelper.AliasingDrawableWrapper(compressed.toDrawable(resources)))
+
+        if (data == null) {
+            binding.txtRoadName.text = "unknown"
+            binding.txtNextRoadName.text = "unknown"
+            binding.txtDistance.text = "unknown"
+            binding.txtEta.text = "unknown"
+            return
+        }
+
+        binding.txtRoadName.text = data.nextDirection.spannedList?.first()
+        binding.txtNextRoadName.text = data.nextDirection.spannedList?.drop(1)?.joinToString(" ")
+        binding.txtDistance.text = data.nextDirection.distance
+        binding.txtEta.text = data.eta.toString()
     }
 
     override fun onCreateView(
@@ -99,11 +98,10 @@ class HomeFragment : Fragment() {
     override fun onStart() {
         super.onStart()
 
-        Timber.e("Start")
         LocalBroadcastManager.getInstance(requireContext())
             .registerReceiver(
                 navigationReceiver,
-                IntentFilter("${BuildConfig.APPLICATION_ID}.INTENT_NAVIGATION_DATA")
+                IntentFilter("${BuildConfig.APPLICATION_ID}.navigation_data")
             )
 
         Intent(
@@ -116,8 +114,6 @@ class HomeFragment : Fragment() {
     }
 
     override fun onStop() {
-        Timber.e("Stop")
-
         LocalBroadcastManager.getInstance(requireContext()).unregisterReceiver(navigationReceiver)
 
         mNavigationServiceBound = false
