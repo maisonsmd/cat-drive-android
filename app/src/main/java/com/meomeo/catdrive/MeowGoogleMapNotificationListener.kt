@@ -4,9 +4,9 @@ import android.content.Intent
 import android.os.Binder
 import android.os.IBinder
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
+import com.meomeo.catdrive.lib.Intents
 import com.meomeo.catdrive.lib.NavigationNotification
 import com.meomeo.catdrive.service.NavigationListener
-import timber.log.Timber
 
 class MeowGoogleMapNotificationListener : NavigationListener() {
     private val mBinder = LocalBinder()
@@ -22,7 +22,7 @@ class MeowGoogleMapNotificationListener : NavigationListener() {
 
     override fun onBind(intent: Intent?): IBinder? {
         // Bind by this process
-        if (intent?.action == "${BuildConfig.APPLICATION_ID}.local_bind") {
+        if (intent?.action == Intents.BindLocalService) {
             return mBinder
         }
         // Bind by OS
@@ -30,10 +30,10 @@ class MeowGoogleMapNotificationListener : NavigationListener() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (intent?.action == "${BuildConfig.APPLICATION_ID}.enable_services") {
+        if (intent?.action == Intents.EnableServices) {
             enabled = true
         }
-        if (intent?.action == "${BuildConfig.APPLICATION_ID}.disable_services") {
+        if (intent?.action == Intents.DisableServices) {
             enabled = false
         }
 
@@ -42,8 +42,8 @@ class MeowGoogleMapNotificationListener : NavigationListener() {
 
     override fun onNavigationNotificationUpdated(navNotification: NavigationNotification) {
         LocalBroadcastManager.getInstance(applicationContext).sendBroadcast(
-            Intent("${BuildConfig.APPLICATION_ID}.navigation_data").apply {
-                putExtra("navigation_data_update", navNotification.navigationData)
+            Intent(Intents.NavigationUpdate).apply {
+                putExtra("navigation_data", navNotification.navigationData)
             }
         )
     }
@@ -51,7 +51,7 @@ class MeowGoogleMapNotificationListener : NavigationListener() {
     override fun onNavigationNotificationRemoved(navNotification: NavigationNotification) {
         LocalBroadcastManager.getInstance(applicationContext).sendBroadcast(
             // Empty data (no extras)
-            Intent("${BuildConfig.APPLICATION_ID}.navigation_data")
+            Intent(Intents.NavigationUpdate)
         )
     }
 }

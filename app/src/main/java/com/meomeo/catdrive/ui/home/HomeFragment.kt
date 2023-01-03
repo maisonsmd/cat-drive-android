@@ -12,13 +12,14 @@ import androidx.core.graphics.drawable.toDrawable
 import androidx.core.graphics.scale
 import androidx.fragment.app.Fragment
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
-import com.meomeo.catdrive.BuildConfig
 import com.meomeo.catdrive.MeowGoogleMapNotificationListener
 import com.meomeo.catdrive.R
 import com.meomeo.catdrive.databinding.FragmentHomeBinding
 import com.meomeo.catdrive.lib.BitmapHelper
+import com.meomeo.catdrive.lib.Intents
 import com.meomeo.catdrive.lib.NavigationData
 import timber.log.Timber
+import kotlin.math.round
 
 
 class HomeFragment : Fragment() {
@@ -50,8 +51,16 @@ class HomeFragment : Fragment() {
     private val navigationReceiver: BroadcastReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent) {
             // Timber.i("received ${context} - ${intent}")
-            val data = intent.getParcelableExtra("navigation_data_update") as NavigationData?
+            val data = intent.getParcelableExtra("navigation_data") as NavigationData?
             displayNavigationData(data)
+        }
+    }
+
+    private val gpsReceiver: BroadcastReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent) {
+            // Timber.i("received ${context} - ${intent}")
+            val speed = intent.getFloatExtra("speed", 0f).toInt()
+            binding.txtSpeed.text = "$speed km/h"
         }
     }
 
@@ -98,23 +107,21 @@ class HomeFragment : Fragment() {
     override fun onStart() {
         super.onStart()
 
+        // Listen to Navigation dat
         LocalBroadcastManager.getInstance(requireContext())
-            .registerReceiver(
-                navigationReceiver,
-                IntentFilter("${BuildConfig.APPLICATION_ID}.navigation_data")
-            )
+            .registerReceiver(navigationReceiver,IntentFilter(Intents.NavigationUpdate))
+        // Listen to GPS data
+        LocalBroadcastManager.getInstance(requireContext())
+            .registerReceiver(gpsReceiver, IntentFilter(Intents.GpsUpdate))
 
-        Intent(
-            requireContext(),
-            MeowGoogleMapNotificationListener::class.java
-        ).also { intent -> intent.action = "${BuildConfig.APPLICATION_ID}.local_bind" }
-            .also { intent ->
-                requireActivity().bindService(intent, navigationConnection, Context.BIND_AUTO_CREATE)
-            }
+        Intent(requireContext(), MeowGoogleMapNotificationListener::class.java)
+            .also { intent -> intent.action = Intents.BindLocalService }
+            .also { intent -> requireActivity().bindService(intent, navigationConnection, Context.BIND_AUTO_CREATE) }
     }
 
     override fun onStop() {
         LocalBroadcastManager.getInstance(requireContext()).unregisterReceiver(navigationReceiver)
+        LocalBroadcastManager.getInstance(requireContext()).unregisterReceiver(gpsReceiver)
 
         mNavigationServiceBound = false
         requireActivity().unbindService(navigationConnection)

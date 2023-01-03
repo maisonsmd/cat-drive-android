@@ -18,6 +18,7 @@ import androidx.navigation.ui.setupActionBarWithNavController
 import androidx.navigation.ui.setupWithNavController
 import com.google.android.material.bottomnavigation.BottomNavigationView
 import com.meomeo.catdrive.databinding.ActivityMainBinding
+import com.meomeo.catdrive.lib.Intents
 import com.meomeo.catdrive.service.BroadcastService
 import com.meomeo.catdrive.ui.ActivityViewModel
 import timber.log.Timber
@@ -62,7 +63,8 @@ class MainActivity : AppCompatActivity() {
     fun haveLocationAccessPermission(): Boolean {
         if (ActivityCompat.checkSelfPermission(
                 applicationContext, Manifest.permission.ACCESS_FINE_LOCATION
-            ) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(
+            ) != PackageManager.PERMISSION_GRANTED
+            && ActivityCompat.checkSelfPermission(
                 applicationContext, Manifest.permission.ACCESS_COARSE_LOCATION
             ) != PackageManager.PERMISSION_GRANTED
         ) {
@@ -71,10 +73,12 @@ class MainActivity : AppCompatActivity() {
         return true
     }
 
+    fun allPermissionsGranted(): Boolean {
+        return haveNotificationsAccessPermission() && haveNotificationPostingPermission() && haveLocationAccessPermission()
+    }
+
     private fun checkPermissions() {
-        val allPermissionGranted =
-            haveNotificationsAccessPermission() && haveNotificationPostingPermission() && haveLocationAccessPermission()
-        if (!allPermissionGranted) {
+        if (!allPermissionsGranted()) {
             Toast.makeText(this, "Some permissions are not granted, see Settings page", Toast.LENGTH_LONG).show()
         }
     }
@@ -108,7 +112,7 @@ class MainActivity : AppCompatActivity() {
 
     fun startBroadcastService() {
         Timber.i("start services")
-        val action = "${BuildConfig.APPLICATION_ID}.enable_services"
+        val action = Intents.EnableServices
         startService(Intent(applicationContext, BroadcastService::class.java).apply { setAction(action) })
         startService(Intent(
             applicationContext, MeowGoogleMapNotificationListener::class.java
@@ -117,7 +121,7 @@ class MainActivity : AppCompatActivity() {
 
     fun stopBroadcastService() {
         Timber.i("stop services")
-        val action = "${BuildConfig.APPLICATION_ID}.disable_services"
+        val action = Intents.DisableServices
         // Expect the target service to stop itself
         startService(Intent(
             applicationContext, BroadcastService::class.java

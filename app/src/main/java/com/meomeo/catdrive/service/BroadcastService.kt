@@ -11,8 +11,10 @@ import android.location.LocationListener
 import android.location.LocationManager
 import android.os.IBinder
 import androidx.core.app.ActivityCompat
+import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import com.meomeo.catdrive.BuildConfig
 import com.meomeo.catdrive.MainActivity
+import com.meomeo.catdrive.lib.Intents
 import timber.log.Timber
 
 
@@ -21,12 +23,13 @@ class BroadcastService : Service(), LocationListener {
         Timber.v("onStartCommand: $intent")
 
         // TODO: add ".intent" and move to a common intent constants file
-        if (intent?.action == "${BuildConfig.APPLICATION_ID}.enable_services") {
+        if (intent?.action == Intents.EnableServices) {
             startForeground(1201, buildForegroundNotification())
             subscribeToLocationUpdates()
         }
 
-        if (intent?.action == "${BuildConfig.APPLICATION_ID}.disable_services") {
+        if (intent?.action == Intents.DisableServices) {
+            unsubcribeFromLocationUpdates()
             stopSelf()
         }
 
@@ -34,14 +37,13 @@ class BroadcastService : Service(), LocationListener {
     }
 
     private fun subscribeToLocationUpdates() {
-        // copy from main activity
+        // Copied from main activity
         fun haveLocationAccessPermission(): Boolean {
             if (ActivityCompat.checkSelfPermission(
-                    applicationContext,
-                    Manifest.permission.ACCESS_FINE_LOCATION
-                ) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(
-                    applicationContext,
-                    Manifest.permission.ACCESS_COARSE_LOCATION
+                    applicationContext, Manifest.permission.ACCESS_FINE_LOCATION
+                ) != PackageManager.PERMISSION_GRANTED
+                && ActivityCompat.checkSelfPermission(
+                    applicationContext, Manifest.permission.ACCESS_COARSE_LOCATION
                 ) != PackageManager.PERMISSION_GRANTED
             ) {
                 return false
@@ -50,9 +52,14 @@ class BroadcastService : Service(), LocationListener {
         }
 
         if (haveLocationAccessPermission()) {
-            val manager = this.getSystemService(LOCATION_SERVICE) as LocationManager
+            val manager = getSystemService(LOCATION_SERVICE) as LocationManager
             manager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 0, 0f, this)
         }
+    }
+
+    private fun unsubcribeFromLocationUpdates() {
+        val manager = getSystemService(LOCATION_SERVICE) as LocationManager
+        manager.removeUpdates(this)
     }
 
     private fun buildForegroundNotification(): Notification {
@@ -93,5 +100,11 @@ class BroadcastService : Service(), LocationListener {
     override fun onLocationChanged(location: Location) {
         val speed = location.speed * 3600 / 1000
         Timber.d("$speed km/h")
+
+        LocalBroadcastManager.getInstance(applicationContext).sendBroadcast(
+            Intent(Intents.GpsUpdate).apply {
+                putExtra("speed", speed)
+            }
+        )
     }
 }

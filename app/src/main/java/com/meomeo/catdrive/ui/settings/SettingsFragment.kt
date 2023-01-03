@@ -72,7 +72,9 @@ class SettingsFragment : PreferenceFragmentCompat() {
     private fun refreshSettings() {
         val mainActivity = activity as MainActivity
 
-        mServiceEnableSwitch!!.isChecked = (activity as MainActivity).isBroadcastServiceRunning()
+        mServiceEnableSwitch.isEnabled = mainActivity.allPermissionsGranted()
+        mServiceEnableSwitch.isChecked = (activity as MainActivity).isBroadcastServiceRunning()
+
         mainActivity.haveNotificationsAccessPermission().also {
             mAccessNotificationCheckbox.isEnabled = !it
             mAccessNotificationCheckbox.isChecked = it
