@@ -25,7 +25,7 @@ class BroadcastService : Service(), LocationListener {
         }
 
         if (intent?.action == Intents.DisableServices) {
-            unsubcribeFromLocationUpdates()
+            unsubscribeFromLocationUpdates()
             stopSelf()
         }
 
@@ -39,7 +39,7 @@ class BroadcastService : Service(), LocationListener {
         }
     }
 
-    private fun unsubcribeFromLocationUpdates() {
+    private fun unsubscribeFromLocationUpdates() {
         val manager = getSystemService(LOCATION_SERVICE) as LocationManager
         manager.removeUpdates(this)
     }
@@ -75,7 +75,7 @@ class BroadcastService : Service(), LocationListener {
         return channelId
     }
 
-    override fun onBind(p0: Intent?): IBinder? {
+    override fun onBind(intent: Intent?): IBinder? {
         return null
     }
 

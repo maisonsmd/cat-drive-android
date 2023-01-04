@@ -1,12 +1,10 @@
 package com.meomeo.catdrive
 
-import android.Manifest
 import android.content.Intent
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.app.ActivityCompat
 import androidx.lifecycle.ViewModelProvider
 import androidx.navigation.findNavController
 import androidx.navigation.ui.AppBarConfiguration
@@ -14,7 +12,6 @@ import androidx.navigation.ui.setupActionBarWithNavController
 import androidx.navigation.ui.setupWithNavController
 import com.google.android.material.bottomnavigation.BottomNavigationView
 import com.meomeo.catdrive.databinding.ActivityMainBinding
-import com.meomeo.catdrive.lib.Intents
 import com.meomeo.catdrive.ui.ActivityViewModel
 import com.meomeo.catdrive.ui.DeviceSelectionActivity
 import com.meomeo.catdrive.utils.PermissionCheck
@@ -24,9 +21,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var mBinding: ActivityMainBinding
     private lateinit var mViewModel: ActivityViewModel
 
-
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        // notify settings fragment to update the permissions to view
         mViewModel.permissionUpdatedTimestamp.value = System.currentTimeMillis()
     }
 

@@ -38,6 +38,13 @@ class PermissionCheck {
             return true
         }
 
+        fun checkBluetoothAccessPermission(context: Context): Boolean {
+            return ActivityCompat.checkSelfPermission(
+                context,
+                Manifest.permission.BLUETOOTH_CONNECT
+            ) == PackageManager.PERMISSION_GRANTED
+        }
+
         fun allPermissionsGranted(context: Context): Boolean {
             return checkNotificationsAccessPermission(context)
                     && checkNotificationPostingPermission(context)
@@ -57,6 +64,15 @@ class PermissionCheck {
             @Suppress("DEPRECATION") activity.startActivityForResult(
                 Intent(Intents.OpenNotificationListenerSettings),
                 0
+            )
+        }
+
+        fun requestBluetoothAccessPermissions(activity: AppCompatActivity) {
+            if (checkBluetoothAccessPermission(activity)) return
+            ActivityCompat.requestPermissions(
+                activity,
+                arrayOf(Manifest.permission.BLUETOOTH_CONNECT),
+                100
             )
         }
     }
