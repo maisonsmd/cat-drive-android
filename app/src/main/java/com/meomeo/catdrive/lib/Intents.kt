@@ -12,5 +12,7 @@ class Intents {
 
         const val NavigationUpdate = "${appId}.intent.NAVIGATION_UPDATE"
         const val GpsUpdate = "${appId}.intent.GPS_UPDATE"
+
+        const val OpenNotificationListenerSettings = "android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS"
     }
 }

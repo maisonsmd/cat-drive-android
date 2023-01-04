@@ -11,6 +11,8 @@ import androidx.preference.SwitchPreference
 import com.meomeo.catdrive.MainActivity
 import com.meomeo.catdrive.R
 import com.meomeo.catdrive.ui.ActivityViewModel
+import com.meomeo.catdrive.utils.PermissionCheck
+import com.meomeo.catdrive.utils.ServiceManager
 
 class SettingsFragment : PreferenceFragmentCompat() {
     private lateinit var mServiceEnableSwitch: SwitchPreference
@@ -45,45 +47,41 @@ class SettingsFragment : PreferenceFragmentCompat() {
         refreshSettings()
 
         mServiceEnableSwitch.setOnPreferenceChangeListener { _, newValue ->
-            if (newValue as Boolean) {
-                mainActivity.startBroadcastService()
-            } else {
-                mainActivity.stopBroadcastService()
-            }
+            if (newValue as Boolean)
+                ServiceManager.startBroadcastService(mainActivity)
+            else
+                ServiceManager.stopBroadcastService(mainActivity)
             return@setOnPreferenceChangeListener true
         }
 
         mAccessNotificationCheckbox.setOnPreferenceChangeListener { _, newValue ->
-            if (newValue as Boolean) {
-                mainActivity.requestNotificationAccessPermission()
-            }
+            if (newValue as Boolean)
+                PermissionCheck.requestNotificationAccessPermission(activity as MainActivity)
             return@setOnPreferenceChangeListener false
         }
 
         mAccessLocationCheckbox.setOnPreferenceChangeListener { _, newValue ->
-            if (newValue as Boolean) {
-                mainActivity.requestLocationAccessPermission()
-            }
+            if (newValue as Boolean)
+                PermissionCheck.requestLocationAccessPermission(activity as MainActivity)
             return@setOnPreferenceChangeListener false
         }
-
     }
 
     private fun refreshSettings() {
-        val mainActivity = activity as MainActivity
+        val context = requireContext()
 
-        mServiceEnableSwitch.isEnabled = mainActivity.allPermissionsGranted()
-        mServiceEnableSwitch.isChecked = (activity as MainActivity).isBroadcastServiceRunning()
+        mServiceEnableSwitch.isEnabled = PermissionCheck.allPermissionsGranted(context)
+        mServiceEnableSwitch.isChecked = ServiceManager.isBroadcastServiceRunning(activity as MainActivity)
 
-        mainActivity.haveNotificationsAccessPermission().also {
+        PermissionCheck.checkNotificationsAccessPermission(context).also {
             mAccessNotificationCheckbox.isEnabled = !it
             mAccessNotificationCheckbox.isChecked = it
         }
-        mainActivity.haveNotificationPostingPermission().also {
+        PermissionCheck.checkNotificationPostingPermission(context).also {
             mPostNotificationCheckbox.isEnabled = !it
             mPostNotificationCheckbox.isChecked = it
         }
-        mainActivity.haveLocationAccessPermission().also {
+        PermissionCheck.checkLocationAccessPermission(context).also {
             mAccessLocationCheckbox.isEnabled = !it
             mAccessLocationCheckbox.isChecked = it
         }

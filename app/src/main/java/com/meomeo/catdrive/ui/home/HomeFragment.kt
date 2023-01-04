@@ -12,6 +12,7 @@ import androidx.core.graphics.drawable.toDrawable
 import androidx.core.graphics.scale
 import androidx.fragment.app.Fragment
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
+import com.meomeo.catdrive.MainActivity
 import com.meomeo.catdrive.MeowGoogleMapNotificationListener
 import com.meomeo.catdrive.R
 import com.meomeo.catdrive.databinding.FragmentHomeBinding
@@ -19,7 +20,6 @@ import com.meomeo.catdrive.lib.BitmapHelper
 import com.meomeo.catdrive.lib.Intents
 import com.meomeo.catdrive.lib.NavigationData
 import timber.log.Timber
-import kotlin.math.round
 
 
 class HomeFragment : Fragment() {
@@ -101,6 +101,12 @@ class HomeFragment : Fragment() {
     ): View {
         // val homeViewModel = ViewModelProvider(this)[HomeViewModel::class.java]
         mUiBinding = FragmentHomeBinding.inflate(inflater, container, false)
+
+        val mainActivity = activity as MainActivity
+        binding.btnOpenDevices.setOnClickListener { _ ->
+            mainActivity.openDeviceSelectionActivity()
+        }
+
         return binding.root
     }
 
@@ -109,7 +115,7 @@ class HomeFragment : Fragment() {
 
         // Listen to Navigation dat
         LocalBroadcastManager.getInstance(requireContext())
-            .registerReceiver(navigationReceiver,IntentFilter(Intents.NavigationUpdate))
+            .registerReceiver(navigationReceiver, IntentFilter(Intents.NavigationUpdate))
         // Listen to GPS data
         LocalBroadcastManager.getInstance(requireContext())
             .registerReceiver(gpsReceiver, IntentFilter(Intents.GpsUpdate))

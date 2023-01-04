@@ -1,20 +1,17 @@
 package com.meomeo.catdrive.service
 
-import android.Manifest
 import android.app.*
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.graphics.Color
 import android.location.Location
 import android.location.LocationListener
 import android.location.LocationManager
 import android.os.IBinder
-import androidx.core.app.ActivityCompat
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
-import com.meomeo.catdrive.BuildConfig
 import com.meomeo.catdrive.MainActivity
 import com.meomeo.catdrive.lib.Intents
+import com.meomeo.catdrive.utils.PermissionCheck
 import timber.log.Timber
 
 
@@ -22,7 +19,6 @@ class BroadcastService : Service(), LocationListener {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         Timber.v("onStartCommand: $intent")
 
-        // TODO: add ".intent" and move to a common intent constants file
         if (intent?.action == Intents.EnableServices) {
             startForeground(1201, buildForegroundNotification())
             subscribeToLocationUpdates()
@@ -37,21 +33,7 @@ class BroadcastService : Service(), LocationListener {
     }
 
     private fun subscribeToLocationUpdates() {
-        // Copied from main activity
-        fun haveLocationAccessPermission(): Boolean {
-            if (ActivityCompat.checkSelfPermission(
-                    applicationContext, Manifest.permission.ACCESS_FINE_LOCATION
-                ) != PackageManager.PERMISSION_GRANTED
-                && ActivityCompat.checkSelfPermission(
-                    applicationContext, Manifest.permission.ACCESS_COARSE_LOCATION
-                ) != PackageManager.PERMISSION_GRANTED
-            ) {
-                return false
-            }
-            return true
-        }
-
-        if (haveLocationAccessPermission()) {
+        if (PermissionCheck.checkLocationAccessPermission(applicationContext)) {
             val manager = getSystemService(LOCATION_SERVICE) as LocationManager
             manager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 0, 0f, this)
         }
