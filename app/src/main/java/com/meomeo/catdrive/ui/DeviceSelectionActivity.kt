@@ -1,26 +1,37 @@
 package com.meomeo.catdrive.ui
 
 import android.bluetooth.BluetoothAdapter
+import android.bluetooth.BluetoothManager
+import android.content.Context
+import android.content.Intent
 import android.os.Bundle
+import android.os.Parcelable
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
+import android.widget.FrameLayout
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.RecyclerView
 import com.meomeo.catdrive.R
 import com.meomeo.catdrive.utils.PermissionCheck
+import kotlinx.parcelize.Parcelize
+import kotlinx.serialization.Serializable
 import timber.log.Timber
 
+@Parcelize
+@Serializable
 data class BtDevice(
     val name: String,
     val address: String,
-    val connected: Boolean
-)
+    val uuids: List<String>
+) : Parcelable
 
-class CustomAdapter() : RecyclerView.Adapter<CustomAdapter.ViewHolder>() {
+class CustomAdapter(onSelectCallback: (BtDevice) -> Unit) : RecyclerView.Adapter<CustomAdapter.ViewHolder>() {
     private var mDataSet: List<BtDevice> = emptyList()
+    private val mOnSelectCallback = onSelectCallback
+
     var dataSet
         get() = mDataSet
         set(value) {
@@ -32,11 +43,13 @@ class CustomAdapter() : RecyclerView.Adapter<CustomAdapter.ViewHolder>() {
 
     class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
         val txtDeviceName: TextView
-        val txtDeviceAddess: TextView
+        val txtDeviceAddress: TextView
+        val frame: FrameLayout
 
         init {
             txtDeviceName = view.findViewById(R.id.txtItemDeviceName)
-            txtDeviceAddess = view.findViewById(R.id.txtItemMacAddress)
+            txtDeviceAddress = view.findViewById(R.id.txtItemMacAddress)
+            frame = view.findViewById(R.id.frame)
         }
     }
 
@@ -54,16 +67,24 @@ class CustomAdapter() : RecyclerView.Adapter<CustomAdapter.ViewHolder>() {
 
         // Get element from your dataset at this position and replace the
         // contents of the view with that element
-        viewHolder.txtDeviceName.text = mDataSet[position].name
-        viewHolder.txtDeviceAddess.text = mDataSet[position].address
+        viewHolder.txtDeviceName.text = dataSet[position].name
+        viewHolder.txtDeviceAddress.text = dataSet[position].address
+
+        viewHolder.frame.setOnClickListener { _ -> mOnSelectCallback(dataSet[position]) }
     }
 
     // Return the size of your dataset (invoked by the layout manager)
-    override fun getItemCount() = mDataSet.size
+    override fun getItemCount() = dataSet.size
 }
 
 class DeviceSelectionActivity : AppCompatActivity() {
     private lateinit var mViewDeviceAdapter: CustomAdapter
+
+    private fun onDeviceSelected(device: BtDevice) {
+        Timber.w(device.toString())
+        setResult(RESULT_OK, Intent().apply { putExtra("device", device) })
+        finish()
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -71,7 +92,7 @@ class DeviceSelectionActivity : AppCompatActivity() {
 
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
 
-        mViewDeviceAdapter = CustomAdapter()
+        mViewDeviceAdapter = CustomAdapter(this::onDeviceSelected)
         findViewById<RecyclerView?>(R.id.viewDeviceList).apply { adapter = mViewDeviceAdapter }
         findViewById<Button>(R.id.btnScan).apply {
             setOnClickListener {
@@ -83,19 +104,19 @@ class DeviceSelectionActivity : AppCompatActivity() {
     }
 
     private fun getDeviceList() {
-        val mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter()
+        val adapter = (applicationContext.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager).adapter!!
 
-        if (!PermissionCheck.checkBluetoothAccessPermission(this)) {
+        if (!PermissionCheck.checkAllBluetoothPermission(this)) {
             Timber.e("No bluetooth permission")
             PermissionCheck.requestBluetoothAccessPermissions(this)
             return
         }
 
-        val pairedDevices = mBluetoothAdapter.bondedDevices
+        val pairedDevices = adapter.bondedDevices
         val devices = mutableListOf<BtDevice>()
         for (bt in pairedDevices) devices.add(
             BtDevice(
-                bt.name, bt.address, false
+                bt.name, bt.address, bt.uuids.map { it.toString() }
             )
         )
 

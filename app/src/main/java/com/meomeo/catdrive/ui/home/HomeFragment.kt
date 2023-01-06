@@ -99,13 +99,7 @@ class HomeFragment : Fragment() {
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
-        // val homeViewModel = ViewModelProvider(this)[HomeViewModel::class.java]
         mUiBinding = FragmentHomeBinding.inflate(inflater, container, false)
-
-        val mainActivity = activity as MainActivity
-        binding.btnOpenDevices.setOnClickListener { _ ->
-            mainActivity.openDeviceSelectionActivity()
-        }
 
         return binding.root
     }

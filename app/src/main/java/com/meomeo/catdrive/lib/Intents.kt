@@ -10,6 +10,8 @@ class Intents {
         const val DisableServices = "${appId}.intent.DISABLE_SERVICES"
         const val BindLocalService = "${appId}.intent.LOCAL_BIND"
 
+        const val ConnectDevice = "${appId}.intent.CONNECT_DEVICE"
+
         const val NavigationUpdate = "${appId}.intent.NAVIGATION_UPDATE"
         const val GpsUpdate = "${appId}.intent.GPS_UPDATE"
 

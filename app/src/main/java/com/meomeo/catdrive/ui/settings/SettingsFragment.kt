@@ -6,6 +6,7 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.lifecycle.ViewModelProvider
 import androidx.preference.CheckBoxPreference
+import androidx.preference.Preference
 import androidx.preference.PreferenceFragmentCompat
 import androidx.preference.SwitchPreference
 import com.meomeo.catdrive.MainActivity
@@ -19,6 +20,8 @@ class SettingsFragment : PreferenceFragmentCompat() {
     private lateinit var mAccessNotificationCheckbox: CheckBoxPreference
     private lateinit var mPostNotificationCheckbox: CheckBoxPreference
     private lateinit var mAccessLocationCheckbox: CheckBoxPreference
+    private lateinit var mAccessBluetoothCheckbox: CheckBoxPreference
+    private lateinit var mConnectDeviceButton: Preference
 
     override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
         setPreferencesFromResource(R.xml.root_preferences, rootKey)
@@ -43,6 +46,8 @@ class SettingsFragment : PreferenceFragmentCompat() {
         mAccessNotificationCheckbox = preferenceScreen.findPreference("access_notification")!!
         mPostNotificationCheckbox = preferenceScreen.findPreference("post_notification")!!
         mAccessLocationCheckbox = preferenceScreen.findPreference("access_location")!!
+        mAccessBluetoothCheckbox = preferenceScreen.findPreference("access_bluetooth")!!
+        mConnectDeviceButton = preferenceScreen.findPreference("connect_device")!!
 
         refreshSettings()
 
@@ -65,6 +70,17 @@ class SettingsFragment : PreferenceFragmentCompat() {
                 PermissionCheck.requestLocationAccessPermission(activity as MainActivity)
             return@setOnPreferenceChangeListener false
         }
+
+        mAccessBluetoothCheckbox.setOnPreferenceChangeListener { _, newValue ->
+            if (newValue as Boolean)
+                PermissionCheck.requestBluetoothAccessPermissions(activity as MainActivity)
+            return@setOnPreferenceChangeListener false
+        }
+
+        mConnectDeviceButton.setOnPreferenceClickListener { _ ->
+            (activity as MainActivity).openDeviceSelectionActivity()
+            return@setOnPreferenceClickListener false
+        }
     }
 
     private fun refreshSettings() {
@@ -84,6 +100,10 @@ class SettingsFragment : PreferenceFragmentCompat() {
         PermissionCheck.checkLocationAccessPermission(context).also {
             mAccessLocationCheckbox.isEnabled = !it
             mAccessLocationCheckbox.isChecked = it
+        }
+        PermissionCheck.checkAllBluetoothPermission(context).also {
+            mAccessBluetoothCheckbox.isEnabled = !it
+            mAccessBluetoothCheckbox.isChecked = it
         }
     }
 }

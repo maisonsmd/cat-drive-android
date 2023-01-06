@@ -66,7 +66,7 @@ open class NavigationListener : NotificationListenerService() {
         if (!enabled || sbn == null)
             return false
 
-        if (!sbn!!.isOngoing || GMAPS_PACKAGE !in sbn.packageName)
+        if (!sbn.isOngoing || GMAPS_PACKAGE !in sbn.packageName)
             return false
 
         return (sbn.id == 1)
@@ -122,13 +122,12 @@ open class NavigationListener : NotificationListenerService() {
             try {
                 val mapNotification = worker.await()
                 val lastNotification = mCurrentNotification
-                val updated: Boolean
 
-                if (lastNotification == null) {
+                val updated: Boolean = if (lastNotification == null) {
                     onNavigationNotificationAdded(mapNotification)
-                    updated = true
+                    true
                 } else {
-                    updated = lastNotification.navigationData != mapNotification.navigationData
+                    lastNotification.navigationData != mapNotification.navigationData
                     // Timber.v("Notification is different than previous: $updated")
                 }
 

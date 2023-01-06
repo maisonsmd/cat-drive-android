@@ -1,6 +1,8 @@
 package com.meomeo.catdrive.utils
 
 import android.Manifest
+import android.bluetooth.BluetoothAdapter
+import android.bluetooth.BluetoothManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -9,6 +11,8 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import com.meomeo.catdrive.MeowGoogleMapNotificationListener
 import com.meomeo.catdrive.lib.Intents
+import timber.log.Timber
+
 
 class PermissionCheck {
     companion object {
@@ -26,29 +30,54 @@ class PermissionCheck {
         }
 
         fun checkLocationAccessPermission(context: Context): Boolean {
-            if (ActivityCompat.checkSelfPermission(
-                    context, Manifest.permission.ACCESS_FINE_LOCATION
-                ) != PackageManager.PERMISSION_GRANTED
-                && ActivityCompat.checkSelfPermission(
-                    context, Manifest.permission.ACCESS_COARSE_LOCATION
-                ) != PackageManager.PERMISSION_GRANTED
-            ) {
-                return false
-            }
-            return true
+            return ActivityCompat.checkSelfPermission(
+                context, Manifest.permission.ACCESS_FINE_LOCATION
+            ) == PackageManager.PERMISSION_GRANTED
+                    && ActivityCompat.checkSelfPermission(
+                context, Manifest.permission.ACCESS_COARSE_LOCATION
+            ) == PackageManager.PERMISSION_GRANTED
         }
 
-        fun checkBluetoothAccessPermission(context: Context): Boolean {
+        fun checkBluetoothConnectPermission(context: Context): Boolean {
             return ActivityCompat.checkSelfPermission(
                 context,
                 Manifest.permission.BLUETOOTH_CONNECT
             ) == PackageManager.PERMISSION_GRANTED
         }
 
+        fun checkBluetoothPermission(context: Context): Boolean {
+            return ActivityCompat.checkSelfPermission(
+                context,
+                Manifest.permission.BLUETOOTH
+            ) == PackageManager.PERMISSION_GRANTED
+        }
+
+        fun checkBluetoothAdminPermission(context: Context): Boolean {
+            return ActivityCompat.checkSelfPermission(
+                context,
+                Manifest.permission.BLUETOOTH_ADMIN
+            ) == PackageManager.PERMISSION_GRANTED
+        }
+
+        fun checkBluetoothScanPermission(context: Context): Boolean {
+            return ActivityCompat.checkSelfPermission(
+                context,
+                Manifest.permission.BLUETOOTH_SCAN
+            ) == PackageManager.PERMISSION_GRANTED
+        }
+
+        fun checkAllBluetoothPermission(context: Context): Boolean {
+            return checkBluetoothConnectPermission(context)
+                    && checkBluetoothAdminPermission(context)
+                    && checkBluetoothScanPermission(context)
+                    && checkBluetoothPermission(context)
+        }
+
         fun allPermissionsGranted(context: Context): Boolean {
             return checkNotificationsAccessPermission(context)
                     && checkNotificationPostingPermission(context)
                     && checkLocationAccessPermission(context)
+                    && checkAllBluetoothPermission(context)
         }
 
         fun requestLocationAccessPermission(activity: AppCompatActivity) {
@@ -68,12 +97,35 @@ class PermissionCheck {
         }
 
         fun requestBluetoothAccessPermissions(activity: AppCompatActivity) {
-            if (checkBluetoothAccessPermission(activity)) return
+            if (checkAllBluetoothPermission(activity)) return
             ActivityCompat.requestPermissions(
                 activity,
-                arrayOf(Manifest.permission.BLUETOOTH_CONNECT),
+                arrayOf(
+                    Manifest.permission.BLUETOOTH_CONNECT,
+                    Manifest.permission.BLUETOOTH,
+                    Manifest.permission.BLUETOOTH_ADMIN,
+                    Manifest.permission.BLUETOOTH_SCAN,
+                ),
                 100
             )
+        }
+
+        fun isBluetoothEnabled(context: Context): Boolean {
+            val adapter = (context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager).adapter!!
+            return adapter.isEnabled
+        }
+
+        fun requestEnableBluetooth(activity: AppCompatActivity) {
+            if (!checkAllBluetoothPermission(activity)) {
+                Timber.e("No bluetooth permission!!!")
+                return
+            }
+
+            if (isBluetoothEnabled(activity.applicationContext))
+                return
+
+            val enableBtIntent = Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE)
+            activity.startActivityForResult(enableBtIntent, 102)
         }
     }
 }

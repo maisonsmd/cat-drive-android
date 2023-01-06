@@ -10,23 +10,38 @@ import android.location.LocationManager
 import android.os.IBinder
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import com.meomeo.catdrive.MainActivity
+import com.meomeo.catdrive.lib.BluetoothSerial
 import com.meomeo.catdrive.lib.Intents
+import com.meomeo.catdrive.ui.BtDevice
 import com.meomeo.catdrive.utils.PermissionCheck
 import timber.log.Timber
 
 
 class BroadcastService : Service(), LocationListener {
+    companion object {
+        private var mSerial: BluetoothSerial? = null
+    }
+
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         Timber.v("onStartCommand: $intent")
 
         if (intent?.action == Intents.EnableServices) {
             startForeground(1201, buildForegroundNotification())
             subscribeToLocationUpdates()
+            mSerial?.keepConnectionAlive()
         }
 
         if (intent?.action == Intents.DisableServices) {
+            mSerial?.closeConnection()
             unsubscribeFromLocationUpdates()
             stopSelf()
+        }
+
+        if (intent?.action == Intents.ConnectDevice) {
+            if (mSerial == null)
+                mSerial = BluetoothSerial(applicationContext)
+            val device = intent.getParcelableExtra<BtDevice>("device")!!
+            mSerial!!.connect(device)
         }
 
         return START_STICKY
@@ -81,12 +96,16 @@ class BroadcastService : Service(), LocationListener {
 
     override fun onLocationChanged(location: Location) {
         val speed = location.speed * 3600 / 1000
-        Timber.d("$speed km/h")
+        // Timber.d("$speed km/h")
 
         LocalBroadcastManager.getInstance(applicationContext).sendBroadcast(
             Intent(Intents.GpsUpdate).apply {
                 putExtra("speed", speed)
             }
         )
+
+        if (mSerial?.isConnected() == true) {
+            mSerial?.sendData(speed.toString())
+        }
     }
 }

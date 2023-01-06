@@ -1,10 +1,17 @@
 package com.meomeo.catdrive
 
+import android.annotation.SuppressLint
+import android.bluetooth.BluetoothAdapter
+import android.bluetooth.BluetoothDevice
+import android.bluetooth.BluetoothManager
+import android.bluetooth.BluetoothSocket
+import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.getSystemService
 import androidx.lifecycle.ViewModelProvider
 import androidx.navigation.findNavController
 import androidx.navigation.ui.AppBarConfiguration
@@ -13,9 +20,12 @@ import androidx.navigation.ui.setupWithNavController
 import com.google.android.material.bottomnavigation.BottomNavigationView
 import com.meomeo.catdrive.databinding.ActivityMainBinding
 import com.meomeo.catdrive.ui.ActivityViewModel
+import com.meomeo.catdrive.ui.BtDevice
 import com.meomeo.catdrive.ui.DeviceSelectionActivity
 import com.meomeo.catdrive.utils.PermissionCheck
+import com.meomeo.catdrive.utils.ServiceManager
 import timber.log.Timber
+import java.security.Provider.Service
 
 class MainActivity : AppCompatActivity() {
     private lateinit var mBinding: ActivityMainBinding
@@ -27,10 +37,19 @@ class MainActivity : AppCompatActivity() {
         mViewModel.permissionUpdatedTimestamp.value = System.currentTimeMillis()
     }
 
+    @SuppressLint("MissingPermission")
     private val mDeviceSelectionRequest = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) {
-        Timber.d(it.toString())
+        if (it.resultCode == RESULT_OK) {
+            val device = it.data!!.getParcelableExtra<BtDevice>("device")!!
+            Timber.d(device.uuids.toString())
+            if (PermissionCheck.checkBluetoothScanPermission(this)) {
+                ServiceManager.requestConnectDevice(this, device)
+            } else {
+                Toast.makeText(this, "No bluetooth permission or BT not enabled!", Toast.LENGTH_SHORT).show()
+            }
+        }
     }
 
     private fun checkPermissions() {

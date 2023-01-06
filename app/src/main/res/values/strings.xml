@@ -5,15 +5,20 @@
     <string name="title_devices">Devices</string>
 
     <!-- Preference Titles -->
+    <string name="device_header">Devices</string>
     <string name="service_header">Service</string>
+
+    <string name="device_connect">Connect to a device</string>
 
     <!-- Service Preferences -->
     <string name="service_enable">Run services</string>
+    <string name="service_enable_notice">Requires all permissions allowed &amp; bluetooth turned on</string>
     <string name="missing_permissions">Missing permissions</string>
     <string name="action_settings">Go to notification settings</string>
 
     <string name="permission_access_notification">Accessing notifications</string>
     <string name="permission_post_notification">Posting notifications</string>
     <string name="permission_access_location">Accessing location</string>
+    <string name="permission_access_bluetooth">Accessing bluetooth</string>
 
 </resources>

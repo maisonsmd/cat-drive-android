@@ -7,18 +7,30 @@ import androidx.appcompat.app.AppCompatActivity
 import com.meomeo.catdrive.MeowGoogleMapNotificationListener
 import com.meomeo.catdrive.lib.Intents
 import com.meomeo.catdrive.service.BroadcastService
+import com.meomeo.catdrive.ui.BtDevice
 import timber.log.Timber
 
 class ServiceManager {
     companion object {
         fun startBroadcastService(activity: AppCompatActivity) {
             Timber.i("start services")
+            PermissionCheck.requestEnableBluetooth(activity)
+
             val action = Intents.EnableServices
             activity.startService(Intent(activity, BroadcastService::class.java).apply { setAction(action) })
             activity.startService(
                 Intent(
                     activity, MeowGoogleMapNotificationListener::class.java
                 ).apply { setAction(action) })
+        }
+
+        fun requestConnectDevice(activity: AppCompatActivity, device: BtDevice) {
+            val action = Intents.ConnectDevice
+            val intent = Intent(activity, BroadcastService::class.java).apply {
+                setAction(action)
+                putExtra("device", device)
+            }
+            activity.startService(intent)
         }
 
         fun stopBroadcastService(activity: AppCompatActivity) {
