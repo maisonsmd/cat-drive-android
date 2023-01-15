@@ -108,7 +108,7 @@ internal class GMapsNotification(cx: Context, sbn: StatusBarNotification) : Navi
             val etaList = etaText.text.split("·")
             if (etaList.size == 3) {
                 val distance = etaList[1].trim()
-                data.eta = NavigationEta(etaList[2].trim(), etaList[0].trim(), distance)
+                data.eta = NavigationEta(etaList[2].removeSuffix("ETA").trim(), etaList[0].trim(), distance)
             }
         }
 
@@ -116,10 +116,34 @@ internal class GMapsNotification(cx: Context, sbn: StatusBarNotification) : Navi
         if (titleText != null && titleText.text.trim().isNotEmpty()) {
             nextDistance = titleText.text.trim().toString()
         }
-        val directionList = ParserHelper.splitByStyleSpan(directionText?.text as Spanned, Typeface.NORMAL, 2)
-        data.nextDirection = NavigationDirection(directionList.map { it.text }, nextDistance)
+        var nextRoad = ""
+        var nextRoadDesc = ""
+        if (directionText?.text !is Spanned) {
+            // must be the text "Rerouting..."
+            Timber.w("Direction Text is not Spanned, text: ${directionText?.text}")
+            nextRoad = directionText?.text as String
+        } else {
+            // Road names are in Typeface.BOLD, sub texts are in Typeface.NORMAL
+            var directionList = ParserHelper.splitByStyleSpan(directionText?.text as Spanned, Typeface.NORMAL, 2)
+            if (directionList.isNotEmpty()) {
+                val nextRoadList = mutableListOf(directionList.first())
+                val nextRoadDescList = mutableListOf<ParserHelper.SpanSplitResult>()
 
-        (rightIcon?.drawable as BitmapDrawable).bitmap.also {
+                val rest = directionList.drop(1)
+                val index = rest.indexOfFirst { it.isKeySpan && it.text.trim() != "/" }
+                if (index == -1) {
+                    nextRoadList.addAll(rest)
+                } else {
+                    nextRoadList.addAll(rest.subList(0, index))
+                    nextRoadDescList.addAll(rest.subList(index, rest.size))
+                }
+                nextRoad = nextRoadList.joinToString(" ") { it.text }
+                nextRoadDesc = nextRoadDescList.joinToString(" ") { it.text }
+            }
+        }
+        data.nextDirection = NavigationDirection(nextRoad, nextRoadDesc, nextDistance)
+
+        (rightIcon?.drawable as BitmapDrawable?)?.bitmap?.also {
             data.actionIcon = NavigationIcon(it.copy(it.config, false))
         }
 

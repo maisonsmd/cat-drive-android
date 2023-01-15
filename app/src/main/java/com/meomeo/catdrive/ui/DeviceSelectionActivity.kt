@@ -1,6 +1,7 @@
 package com.meomeo.catdrive.ui
 
-import android.bluetooth.BluetoothAdapter
+import android.annotation.SuppressLint
+import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothManager
 import android.content.Context
 import android.content.Intent
@@ -20,16 +21,8 @@ import kotlinx.parcelize.Parcelize
 import kotlinx.serialization.Serializable
 import timber.log.Timber
 
-@Parcelize
-@Serializable
-data class BtDevice(
-    val name: String,
-    val address: String,
-    val uuids: List<String>
-) : Parcelable
-
-class CustomAdapter(onSelectCallback: (BtDevice) -> Unit) : RecyclerView.Adapter<CustomAdapter.ViewHolder>() {
-    private var mDataSet: List<BtDevice> = emptyList()
+class CustomAdapter(onSelectCallback: (BluetoothDevice) -> Unit) : RecyclerView.Adapter<CustomAdapter.ViewHolder>() {
+    private var mDataSet: List<BluetoothDevice> = mutableListOf()
     private val mOnSelectCallback = onSelectCallback
 
     var dataSet
@@ -63,6 +56,7 @@ class CustomAdapter(onSelectCallback: (BtDevice) -> Unit) : RecyclerView.Adapter
     }
 
     // Replace the contents of a view (invoked by the layout manager)
+    @SuppressLint("MissingPermission")
     override fun onBindViewHolder(viewHolder: ViewHolder, position: Int) {
 
         // Get element from your dataset at this position and replace the
@@ -80,7 +74,12 @@ class CustomAdapter(onSelectCallback: (BtDevice) -> Unit) : RecyclerView.Adapter
 class DeviceSelectionActivity : AppCompatActivity() {
     private lateinit var mViewDeviceAdapter: CustomAdapter
 
-    private fun onDeviceSelected(device: BtDevice) {
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        getDeviceList()
+    }
+
+    private fun onDeviceSelected(device: BluetoothDevice) {
         Timber.w(device.toString())
         setResult(RESULT_OK, Intent().apply { putExtra("device", device) })
         finish()
@@ -100,27 +99,24 @@ class DeviceSelectionActivity : AppCompatActivity() {
             }
         }
 
-        getDeviceList()
+        if (PermissionCheck.isBluetoothEnabled(this))
+            getDeviceList()
+        else
+            PermissionCheck.requestEnableBluetooth(this)
     }
 
+    @SuppressLint("MissingPermission")
     private fun getDeviceList() {
         val adapter = (applicationContext.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager).adapter!!
 
-        if (!PermissionCheck.checkAllBluetoothPermission(this)) {
+        if (!PermissionCheck.checkBluetoothPermissions(this)) {
             Timber.e("No bluetooth permission")
             PermissionCheck.requestBluetoothAccessPermissions(this)
             return
         }
 
         val pairedDevices = adapter.bondedDevices
-        val devices = mutableListOf<BtDevice>()
-        for (bt in pairedDevices) devices.add(
-            BtDevice(
-                bt.name, bt.address, bt.uuids.map { it.toString() }
-            )
-        )
-
-        mViewDeviceAdapter.dataSet = devices
+        mViewDeviceAdapter.dataSet = pairedDevices.toList()
     }
 
 }

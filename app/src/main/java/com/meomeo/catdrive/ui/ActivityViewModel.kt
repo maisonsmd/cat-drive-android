@@ -1,14 +1,14 @@
 package com.meomeo.catdrive.ui
 
-import androidx.lifecycle.LiveData
+import android.bluetooth.BluetoothDevice
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
+import com.meomeo.catdrive.lib.NavigationData
 
 class ActivityViewModel : ViewModel() {
-    private val mPermissionUpdatedTimestamp = MutableLiveData<Long>().apply {
-        value = 0
-    }
-    var permissionUpdatedTimestamp: MutableLiveData<Long>
-        get() = mPermissionUpdatedTimestamp
-        set(value) = mPermissionUpdatedTimestamp.postValue(value.value)
+    val permissionUpdatedTimestamp = MutableLiveData<Long>().apply { value = 0 }
+    val navigationData = MutableLiveData<NavigationData>().apply { value = NavigationData() }
+    val speed = MutableLiveData<Int>().apply { value = 0 }
+    val connectedDevice = MutableLiveData<BluetoothDevice?>().apply { value = null }
+    val serviceRunInBackground = MutableLiveData<Boolean>().apply { value = false }
 }

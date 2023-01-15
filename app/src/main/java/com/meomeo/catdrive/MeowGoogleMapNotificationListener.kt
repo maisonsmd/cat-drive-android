@@ -21,7 +21,7 @@ class MeowGoogleMapNotificationListener : NavigationListener() {
     }
 
     override fun onBind(intent: Intent?): IBinder? {
-        // Bind by this process
+        // Bind by activity
         if (intent?.action == Intents.BindLocalService) {
             return mBinder
         }

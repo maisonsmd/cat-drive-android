@@ -8,7 +8,8 @@ import kotlinx.serialization.Serializable
 @Parcelize
 @Serializable
 data class NavigationDirection(
-    val spannedList: List<String>? = null,
+    val nextRoad: String? = null,
+    val nextRoadAdditionalInfo: String? = null,
     val distance: String? = null,
 ) : Parcelable
 

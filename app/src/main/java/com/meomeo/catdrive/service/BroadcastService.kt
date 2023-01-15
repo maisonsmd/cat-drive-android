@@ -1,50 +1,219 @@
 package com.meomeo.catdrive.service
 
+import android.annotation.SuppressLint
 import android.app.*
+import android.bluetooth.BluetoothDevice
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.graphics.Color
 import android.location.Location
 import android.location.LocationListener
 import android.location.LocationManager
+import android.os.Binder
 import android.os.IBinder
+import android.util.Size
+import android.widget.Toast
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import com.meomeo.catdrive.MainActivity
+import com.meomeo.catdrive.R
+import com.meomeo.catdrive.SHARED_PREFERENCES_FILE
+import com.meomeo.catdrive.lib.BitmapHelper
 import com.meomeo.catdrive.lib.BluetoothSerial
 import com.meomeo.catdrive.lib.Intents
-import com.meomeo.catdrive.ui.BtDevice
+import com.meomeo.catdrive.lib.NavigationData
 import com.meomeo.catdrive.utils.PermissionCheck
+import org.json.JSONObject
 import timber.log.Timber
+import java.util.*
+import kotlin.math.ceil
 
+
+const val NOTIFICATION_ID = 1201
 
 class BroadcastService : Service(), LocationListener {
     companion object {
         private var mSerial: BluetoothSerial? = null
+        private var mRunInBackground: Boolean = false
+        private var mNotificationBuilder: Notification.Builder? = null
+        private var mTimer: Timer? = null
     }
 
+    private var mLastNavigationData: NavigationData? = null
+
+    val connectedDevice: BluetoothDevice?
+        get() {
+            return mSerial?.connectedDevice()
+        }
+
+    /**
+     * RunInBackground != Running, because running means it will stop with the life cycle of activity
+     */
+    var runInBackground: Boolean
+        get() {
+            return mRunInBackground
+        }
+        private set(value) {
+            if (mRunInBackground == value)
+                return
+            mRunInBackground = value
+            LocalBroadcastManager.getInstance(applicationContext).sendBroadcast(
+                Intent(Intents.BackgroundServiceStatus).apply {
+                    putExtra("service", this::class.java.simpleName)
+                    putExtra("run_in_background", value)
+                }
+            )
+        }
+
+    private val mBinder = LocalBinder()
+
+    private val navigationReceiver: BroadcastReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent) {
+            mLastNavigationData = intent.getParcelableExtra("navigation_data") as NavigationData?
+            sendToDevice(mLastNavigationData)
+        }
+    }
+
+    fun sendToDevice(data: NavigationData?) {
+        // TODO: Fix in hardware, currently hardware font does not support Vietnamese '?' tonal
+        fun patchedVietnameseString(s: String?): String? {
+            if (s == null)
+                return null
+            var out = s
+            val strFrom = "ảẢẳẲẩẨẻẺểỂỉỈỏỎổỔởỞủỦửỬỷỶ"
+            val strTo   = "ãÃẵẴẫẪẽẼễỄĩĨõÕỗỖỡỠũŨữỮỹỸ"
+            for (i in strFrom.indices)
+                out = out!!.replace(strFrom[i], strTo[i], false)
+            return out
+        }
+        val json = JSONObject().apply {
+            put("navigation", JSONObject().apply {
+                put("next_road", patchedVietnameseString(data?.nextDirection?.nextRoad))
+                put("next_road_sub", patchedVietnameseString(data?.nextDirection?.nextRoadAdditionalInfo))
+                put("next_road_distance", data?.nextDirection?.distance)
+                put("eta", data?.eta?.eta)
+                put("ete", data?.eta?.ete)
+                put("distance", data?.eta?.distance)
+                if (data?.actionIcon?.bitmap != null)
+                    put( "icon", with(BitmapHelper()) {
+                        toBase64(compressBitmap(data.actionIcon.bitmap!!, Size(32, 32)))
+                    }
+                )
+            })
+        }
+        sendToDevice(json)
+    }
+
+    inner class LocalBinder : Binder() {
+        // Return this instance of LocalService so clients can call public methods
+        fun getService(): BroadcastService = this@BroadcastService
+    }
+
+    override fun onBind(intent: Intent?): IBinder? {
+        // Bind by activity
+        if (intent?.action == Intents.BindLocalService) {
+            return mBinder
+        }
+        // Bind by OS
+        return null
+    }
+
+    @SuppressLint("MissingPermission")
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         Timber.v("onStartCommand: $intent")
 
         if (intent?.action == Intents.EnableServices) {
-            startForeground(1201, buildForegroundNotification())
+            runInBackground = true
+            startForeground(NOTIFICATION_ID, buildForegroundNotification())
+
+            LocalBroadcastManager.getInstance(this)
+                .registerReceiver(navigationReceiver, IntentFilter(Intents.NavigationUpdate))
+
             subscribeToLocationUpdates()
-            mSerial?.keepConnectionAlive()
+            if (PermissionCheck.checkBluetoothPermissions(applicationContext)) {
+                setupSerialConnection()
+                connectToLastDevice()
+            }
+            startTimer()
         }
 
         if (intent?.action == Intents.DisableServices) {
+            runInBackground = false
             mSerial?.closeConnection()
             unsubscribeFromLocationUpdates()
+            LocalBroadcastManager.getInstance(this).unregisterReceiver(navigationReceiver)
+            mNotificationBuilder = null
+            stopForeground(STOP_FOREGROUND_REMOVE)
             stopSelf()
+            stopTimer()
         }
 
         if (intent?.action == Intents.ConnectDevice) {
-            if (mSerial == null)
-                mSerial = BluetoothSerial(applicationContext)
-            val device = intent.getParcelableExtra<BtDevice>("device")!!
-            mSerial!!.connect(device)
+            if (PermissionCheck.checkBluetoothPermissions(applicationContext)) {
+                val device = intent.getParcelableExtra<BluetoothDevice>("device")!!
+                if (connectedDevice?.address != device.address) {
+                    setupSerialConnection()
+                    mSerial!!.connect(device)
+                }
+            }
         }
 
         return START_STICKY
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun setupSerialConnection() {
+        if (mSerial != null)
+            return
+
+        mSerial = BluetoothSerial()
+        mSerial!!.setOnConnectedCallback {
+            Toast.makeText(this, "${it.name} connected!", Toast.LENGTH_SHORT).show()
+            LocalBroadcastManager.getInstance(applicationContext).sendBroadcast(
+                Intent(Intents.ConnectionUpdate).apply {
+                    putExtra("status", "connected")
+                    putExtra("device_name", it.name)
+                    putExtra("device_address", it.address)
+                }
+            )
+            updateNotificationText("Connected to ${it.name}")
+        }
+        mSerial!!.setOnConnectionFailedCallback { device, reason ->
+            Toast.makeText(this, "${device.name} failed!", Toast.LENGTH_SHORT).show()
+            LocalBroadcastManager.getInstance(applicationContext).sendBroadcast(
+                Intent(Intents.ConnectionUpdate).apply {
+                    putExtra("status", "failed")
+                    putExtra("device_name", device.name)
+                    putExtra("device_address", device.address)
+                    putExtra("reason", reason)
+                }
+            )
+        }
+        mSerial!!.setOnDisconnectedCallback {
+            Toast.makeText(this, "${it.name} disconnected!", Toast.LENGTH_SHORT).show()
+            LocalBroadcastManager.getInstance(applicationContext).sendBroadcast(
+                Intent(Intents.ConnectionUpdate).apply {
+                    putExtra("status", "disconnected")
+                    putExtra("device_name", it.name)
+                    putExtra("device_address", it.address)
+                }
+            )
+            updateNotificationText("No device connected")
+        }
+    }
+
+    fun connectToLastDevice() {
+        if (mSerial != null && !mSerial!!.isConnected()) {
+            mSerial?.keepConnectionAlive()
+            val sp = applicationContext.getSharedPreferences(SHARED_PREFERENCES_FILE, Context.MODE_PRIVATE)
+            val name = sp.getString("last_device_name", null)
+            val address = sp.getString("last_device_address", null)
+            Timber.i("trying connecting to $name address $address")
+            if (name != null && address != null) {
+                mSerial!!.connect(address)
+            }
+        }
     }
 
     private fun subscribeToLocationUpdates() {
@@ -57,6 +226,33 @@ class BroadcastService : Service(), LocationListener {
     private fun unsubscribeFromLocationUpdates() {
         val manager = getSystemService(LOCATION_SERVICE) as LocationManager
         manager.removeUpdates(this)
+    }
+
+    private fun startTimer() {
+        if (mTimer == null)
+            mTimer = Timer()
+        mTimer!!.scheduleAtFixedRate(object : TimerTask() {
+            override fun run() {
+                if (mLastNavigationData != null) {
+                    sendToDevice(mLastNavigationData)
+                }
+            }
+        }, 25000, 25000)
+    }
+
+    private fun stopTimer() {
+        if (mTimer != null) {
+            mTimer!!.cancel()
+            mTimer = null
+        }
+    }
+
+    private fun updateNotificationText(text: String) {
+        if (mNotificationBuilder == null)
+            return
+        val notificationManager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+        mNotificationBuilder!!.setContentText(text)
+        notificationManager.notify(NOTIFICATION_ID, mNotificationBuilder!!.build())
     }
 
     private fun buildForegroundNotification(): Notification {
@@ -73,12 +269,13 @@ class BroadcastService : Service(), LocationListener {
             this, 0, intent,
             PendingIntent.FLAG_CANCEL_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
-        return builder.setContentTitle("CatDrive service is running")
+        mNotificationBuilder = builder.setContentTitle("CatDrive service is meow-ing")
+            .setContentText("Méo!")
+            .setSmallIcon(R.drawable.catface)
             .setForegroundServiceBehavior(Notification.FOREGROUND_SERVICE_IMMEDIATE)
-            .setSmallIcon(android.R.drawable.ic_dialog_map)
             .setContentIntent(pendingIntent)
             .setOngoing(true)
-            .build()
+        return mNotificationBuilder!!.build()
     }
 
     private fun createNotificationChannel(channelId: String, channelName: String): String {
@@ -90,13 +287,8 @@ class BroadcastService : Service(), LocationListener {
         return channelId
     }
 
-    override fun onBind(intent: Intent?): IBinder? {
-        return null
-    }
-
     override fun onLocationChanged(location: Location) {
-        val speed = location.speed * 3600 / 1000
-        // Timber.d("$speed km/h")
+        val speed = ceil(location.speed * 3600f / 1000f).toInt()
 
         LocalBroadcastManager.getInstance(applicationContext).sendBroadcast(
             Intent(Intents.GpsUpdate).apply {
@@ -104,8 +296,13 @@ class BroadcastService : Service(), LocationListener {
             }
         )
 
-        if (mSerial?.isConnected() == true) {
-            mSerial?.sendData(speed.toString())
+        val json: JSONObject = JSONObject().apply {
+            put("speed", speed)
         }
+        sendToDevice(json)
+    }
+
+    fun sendToDevice(jsonObject: JSONObject) {
+        mSerial?.sendData(jsonObject.toString() + "\r\n")
     }
 }

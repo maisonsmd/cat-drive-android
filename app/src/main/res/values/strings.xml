@@ -5,10 +5,11 @@
     <string name="title_devices">Devices</string>
 
     <!-- Preference Titles -->
-    <string name="device_header">Devices</string>
+    <string name="device_header">Device</string>
     <string name="service_header">Service</string>
 
-    <string name="device_connect">Connect to a device</string>
+    <string name="device_connect">Select a device</string>
+    <string name="no_device_connected">No device connected</string>
 
     <!-- Service Preferences -->
     <string name="service_enable">Run services</string>
@@ -20,5 +21,10 @@
     <string name="permission_post_notification">Posting notifications</string>
     <string name="permission_access_location">Accessing location</string>
     <string name="permission_access_bluetooth">Accessing bluetooth</string>
+    <string name="summary_device_backlight">Turn device display backlight on or off</string>
+    <string name="title_device_backlight">Display backlight</string>
+    <string name="summary_display_contrast">Change device LCD contrast to improve visibility</string>
+    <string name="title_display_contrast">Display contrast</string>
+    <string name="title_speed_limit">Speed warning limit</string>
 
 </resources>

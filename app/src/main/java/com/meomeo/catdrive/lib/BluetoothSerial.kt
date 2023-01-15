@@ -3,11 +3,8 @@ package com.meomeo.catdrive.lib
 import android.annotation.SuppressLint
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothDevice
-import android.bluetooth.BluetoothManager
 import android.bluetooth.BluetoothSocket
 import android.content.Context
-import android.widget.Toast
-import com.meomeo.catdrive.ui.BtDevice
 import kotlinx.coroutines.*
 import timber.log.Timber
 import java.io.InputStream
@@ -15,9 +12,8 @@ import java.io.OutputStream
 import java.util.*
 
 @SuppressLint("MissingPermission")
-class BluetoothSerial(context: Context) {
-    private val mContext = context
-    private val mAdapter: BluetoothAdapter
+class BluetoothSerial() {
+    private val mAdapter: BluetoothAdapter = BluetoothAdapter.getDefaultAdapter()!!
     private var mDevice: BluetoothDevice? = null
 
     private var mSocket: BluetoothSocket? = null
@@ -26,14 +22,28 @@ class BluetoothSerial(context: Context) {
     private var mConnectionCoroutine: Job? = null
 
     private var mOnConnectedCallback: ((device: BluetoothDevice) -> Unit)? = null
-    private var mOnDisconnectedCallback: (() -> Unit)? = null
+    private var mOnConnectionFailedCallback: ((device: BluetoothDevice, reason: String) -> Unit)? = null
+    private var mOnDisconnectedCallback: ((device: BluetoothDevice) -> Unit)? = null
 
-    init {
-        val bluetoothManager = mContext.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
-        mAdapter = bluetoothManager.adapter
+    fun setOnConnectedCallback(callback: (device: BluetoothDevice) -> Unit) {
+        mOnConnectedCallback = callback
     }
 
-    fun connect(device: BtDevice) {
+    fun setOnConnectionFailedCallback(callback: (device: BluetoothDevice, reason: String) -> Unit) {
+        mOnConnectionFailedCallback = callback
+    }
+
+    fun setOnDisconnectedCallback(callback: (device: BluetoothDevice) -> Unit) {
+        mOnDisconnectedCallback = callback
+    }
+
+    fun connect(address: String) {
+        val device = mAdapter.getRemoteDevice(address)
+        if (device == null || device.bondState != BluetoothDevice.BOND_BONDED) return
+        connect(device)
+    }
+
+    fun connect(device: BluetoothDevice) {
         Timber.d("connect")
 
         mAdapter.cancelDiscovery()
@@ -42,23 +52,22 @@ class BluetoothSerial(context: Context) {
         Timber.d("mSocket: $mSocket, connected: ${mSocket?.isConnected}")
         mDevice = mAdapter.getRemoteDevice(device.address)
         if (mDevice == null || mDevice?.bondState != BluetoothDevice.BOND_BONDED) {
-            Toast.makeText(mContext, "Unable find device: ${device.name}", Toast.LENGTH_SHORT).show()
             return
         }
 
-        val uuid: UUID = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB") //Standard SerialPortService ID
+        //Standard SerialPortService ID
+        val uuid: UUID = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB")
 
         mSocket = mDevice!!.createRfcommSocketToServiceRecord(uuid)
-        Toast.makeText(mContext, "Connecting to ${device.name}", Toast.LENGTH_SHORT).show()
 
         if (mSocket == null) {
-            Toast.makeText(mContext, "Unable to create socket", Toast.LENGTH_SHORT).show()
+            mOnConnectionFailedCallback?.let { it(mDevice!!, "Unable to create socket") }
             return
         } else {
             connectInBackground()
         }
 
-        // TODO: implement when receiving needed
+        // TODO: implement when receiving is needed
         // https://stackoverflow.com/questions/13450406/how-to-receive-serial-data-using-android-bluetooth
         // beginListenForData()
     }
@@ -67,8 +76,28 @@ class BluetoothSerial(context: Context) {
         return (mDevice != null && mSocket != null && mSocket?.isConnected == true)
     }
 
+    fun connectedDevice(): BluetoothDevice? {
+        return if (!isConnected())
+            null
+        else
+            mDevice
+    }
+
     fun sendData(msg: String) {
-        mOutputStream?.write(msg.toByteArray())
+        if (isConnected()) {
+            try {
+                Timber.v(msg)
+                mOutputStream?.write(msg.toByteArray())
+            } catch (e: Exception) {
+                Timber.w("Unable to send data to device, closing connection, error: $e")
+                closeConnection()
+            }
+        } else {
+            if (mDevice != null && (mConnectionCoroutine == null || mConnectionCoroutine?.isActive == false)) {
+                Timber.w("device not connected but did not notify")
+                closeConnection()
+            }
+        }
     }
 
     fun keepConnectionAlive() {
@@ -79,18 +108,23 @@ class BluetoothSerial(context: Context) {
 
     private fun onConnected(device: BluetoothDevice) {
         Timber.i("connected")
-        Toast.makeText(mContext, "Connected to ${device.name}", Toast.LENGTH_SHORT).show()
         mOutputStream = mSocket!!.outputStream
         mInputStream = mSocket!!.inputStream
         mOnConnectedCallback?.let { it(device) }
     }
 
-    private fun onConnectFailed(device: BluetoothDevice?, error: String) {
+    private fun onConnectFailed(device: BluetoothDevice, error: String) {
         Timber.e(error)
-        Toast.makeText(mContext, "Unable to connect to ${device?.name}", Toast.LENGTH_SHORT).show()
+        mOnConnectionFailedCallback?.let { it(device, error) }
+    }
+
+    private fun onDisconnected(device: BluetoothDevice) {
+        Timber.w("disconnected")
+        mOnDisconnectedCallback?.let { it(device) }
     }
 
     private fun connectInBackground() {
+        Timber.w("Connecting in coroutine")
         if (mConnectionCoroutine?.isActive == true) {
             mConnectionCoroutine?.cancel()
         }
@@ -105,6 +139,7 @@ class BluetoothSerial(context: Context) {
 
             try {
                 val connected = worker.await()
+                Timber.w("socket connection await finished")
                 if (connected == true)
                     onConnected(device)
                 else
@@ -118,8 +153,8 @@ class BluetoothSerial(context: Context) {
     fun closeConnection() {
         Timber.w("closing connection")
         mConnectionCoroutine?.cancel()
-        if (isConnected())
-            mOnDisconnectedCallback?.let { it() }
+        mDevice?.let { onDisconnected(it) }
+
         // stopWorker = true
         mOutputStream?.close()
         mInputStream?.close()
@@ -128,10 +163,6 @@ class BluetoothSerial(context: Context) {
         mSocket = null
         mOutputStream = null
         mInputStream = null
-    }
-
-    sealed class Result<out R> {
-        data class Success<out T>(val data: T) : Result<T>()
-        data class Error(val exception: Exception) : Result<Nothing>()
+        mDevice = null
     }
 }

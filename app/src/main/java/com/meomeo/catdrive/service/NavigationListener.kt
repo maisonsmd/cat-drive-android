@@ -9,15 +9,12 @@ import com.meomeo.catdrive.lib.NavigationNotification
 import kotlinx.coroutines.*
 import timber.log.Timber
 
-private const val NOTIFICATIONS_THRESHOLD: Long = 500 // Ignore notifications coming earlier, in ms
-
 @OptIn(DelicateCoroutinesApi::class)
 open class NavigationListener : NotificationListenerService() {
     private var mNotificationParserCoroutine: Job? = null
     private lateinit var mLastNotification: StatusBarNotification
 
     private var mCurrentNotification: NavigationNotification? = null
-    private var mNotificationsThreshold: Long = NOTIFICATIONS_THRESHOLD
     private var mEnabled = false
 
     protected var enabled: Boolean
@@ -33,14 +30,6 @@ open class NavigationListener : NotificationListenerService() {
         }
 
     val lastNavigationData: NavigationData? get() = mCurrentNotification?.navigationData
-
-    private var notificationsThreshold: Long
-        get() = mNotificationsThreshold
-        set(value) {
-            mNotificationsThreshold = if (value < 0) NOTIFICATIONS_THRESHOLD else value
-            mNotificationParserCoroutine?.cancel()
-            checkActiveNotifications()
-        }
 
     override fun onListenerConnected() {
         super.onListenerConnected()
@@ -109,9 +98,6 @@ open class NavigationListener : NotificationListenerService() {
             return
 
         mNotificationParserCoroutine = GlobalScope.launch(Dispatchers.Main) {
-            if (mCurrentNotification != null)
-                delay(notificationsThreshold)
-
             val worker = GlobalScope.async(Dispatchers.Default) {
                 return@async GMapsNotification(
                     this@NavigationListener.applicationContext,

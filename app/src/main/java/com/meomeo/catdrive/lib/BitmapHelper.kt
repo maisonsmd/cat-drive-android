@@ -3,10 +3,13 @@ package com.meomeo.catdrive.lib
 import android.graphics.*
 import android.graphics.drawable.Drawable
 import android.graphics.drawable.DrawableWrapper
+import android.util.Base64
 import android.util.Size
 import androidx.core.graphics.scale
 import androidx.core.graphics.toColor
 import timber.log.Timber
+import kotlin.experimental.and
+import kotlin.experimental.or
 import kotlin.math.sqrt
 
 class BitmapHelper {
@@ -23,6 +26,23 @@ class BitmapHelper {
         companion object {
             private val DRAW_FILTER: DrawFilter = PaintFlagsDrawFilter(Paint.FILTER_BITMAP_FLAG, 0)
         }
+    }
+
+    fun toBase64(source: Bitmap): String {
+        val w = source.width
+        val h = source.height
+        val byteWidth = (w + 7) / 8
+        val buffer = ByteArray(byteWidth * h) { _ -> 0 }
+
+        for (y in 0 until h) {
+            for (x in 0 until w) {
+                val px = if (source.getPixel(x, y) == Color.BLACK) 1 else 0
+                val byteIndex = y * byteWidth + x / 8
+                buffer[byteIndex] = buffer[byteIndex] or (px shl (7 - x % 8)).toByte()
+            }
+        }
+
+        return Base64.encodeToString(buffer, Base64.NO_WRAP)
     }
 
     private fun ditherImage(source: Bitmap): Bitmap {

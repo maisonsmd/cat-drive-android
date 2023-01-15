@@ -50,7 +50,7 @@ object ParserHelper {
         for (span in spans) {
             var segmentMatched = false
             val segment = input.substring(span.begin, span.end)
-            if (span.style == keyStyle && (segment.trim().length > minSpanLength)) {
+            if (span.style == keyStyle && (segment.trim().length >= minSpanLength)) {
                 segmentMatched = true
             }
 

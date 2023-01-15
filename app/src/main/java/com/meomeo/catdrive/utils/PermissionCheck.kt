@@ -66,7 +66,7 @@ class PermissionCheck {
             ) == PackageManager.PERMISSION_GRANTED
         }
 
-        fun checkAllBluetoothPermission(context: Context): Boolean {
+        fun checkBluetoothPermissions(context: Context): Boolean {
             return checkBluetoothConnectPermission(context)
                     && checkBluetoothAdminPermission(context)
                     && checkBluetoothScanPermission(context)
@@ -77,7 +77,7 @@ class PermissionCheck {
             return checkNotificationsAccessPermission(context)
                     && checkNotificationPostingPermission(context)
                     && checkLocationAccessPermission(context)
-                    && checkAllBluetoothPermission(context)
+                    && checkBluetoothPermissions(context)
         }
 
         fun requestLocationAccessPermission(activity: AppCompatActivity) {
@@ -97,7 +97,7 @@ class PermissionCheck {
         }
 
         fun requestBluetoothAccessPermissions(activity: AppCompatActivity) {
-            if (checkAllBluetoothPermission(activity)) return
+            if (checkBluetoothPermissions(activity)) return
             ActivityCompat.requestPermissions(
                 activity,
                 arrayOf(
@@ -116,7 +116,7 @@ class PermissionCheck {
         }
 
         fun requestEnableBluetooth(activity: AppCompatActivity) {
-            if (!checkAllBluetoothPermission(activity)) {
+            if (!checkBluetoothPermissions(activity)) {
                 Timber.e("No bluetooth permission!!!")
                 return
             }

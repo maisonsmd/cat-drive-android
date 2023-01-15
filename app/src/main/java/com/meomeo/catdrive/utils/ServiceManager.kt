@@ -1,13 +1,15 @@
 package com.meomeo.catdrive.utils
 
 import android.app.ActivityManager
+import android.bluetooth.BluetoothDevice
 import android.content.Context
 import android.content.Intent
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.ViewModelProvider
 import com.meomeo.catdrive.MeowGoogleMapNotificationListener
 import com.meomeo.catdrive.lib.Intents
 import com.meomeo.catdrive.service.BroadcastService
-import com.meomeo.catdrive.ui.BtDevice
+import com.meomeo.catdrive.ui.ActivityViewModel
 import timber.log.Timber
 
 class ServiceManager {
@@ -24,7 +26,7 @@ class ServiceManager {
                 ).apply { setAction(action) })
         }
 
-        fun requestConnectDevice(activity: AppCompatActivity, device: BtDevice) {
+        fun requestConnectDevice(activity: AppCompatActivity, device: BluetoothDevice) {
             val action = Intents.ConnectDevice
             val intent = Intent(activity, BroadcastService::class.java).apply {
                 setAction(action)
@@ -48,15 +50,16 @@ class ServiceManager {
         }
 
         @Suppress("DEPRECATION")
-        private fun <T> isServiceRunning(activity: AppCompatActivity, service: Class<T>): Boolean {
-            return (activity.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager).getRunningServices(
+        private fun <T> isServiceRunningInBackground(activity: AppCompatActivity, service: Class<T>): Boolean {
+            val running = (activity.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager).getRunningServices(
                 Integer.MAX_VALUE
-            )
-                .any { it.service.className == service.name }
+            ).any { it.service.className == service.name }
+            val viewModel = ViewModelProvider(activity)[ActivityViewModel::class.java]
+            return running && viewModel.serviceRunInBackground.value == true
         }
 
-        fun isBroadcastServiceRunning(activity: AppCompatActivity): Boolean {
-            return isServiceRunning(activity, BroadcastService::class.java)
+        fun isBroadcastServiceRunningInBackground(activity: AppCompatActivity): Boolean {
+            return isServiceRunningInBackground(activity, BroadcastService::class.java)
         }
 
     }
