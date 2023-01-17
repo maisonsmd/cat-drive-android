@@ -123,6 +123,12 @@ class BluetoothSerial() {
         mOnDisconnectedCallback?.let { it(device) }
     }
 
+    fun isBusyConnecting(): Boolean {
+        if (mConnectionCoroutine == null)
+            return false
+        return mConnectionCoroutine!!.isActive
+    }
+
     private fun connectInBackground() {
         Timber.w("Connecting in coroutine")
         if (mConnectionCoroutine?.isActive == true) {

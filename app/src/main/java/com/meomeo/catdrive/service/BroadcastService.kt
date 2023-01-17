@@ -14,7 +14,6 @@ import android.location.LocationManager
 import android.os.Binder
 import android.os.IBinder
 import android.util.Size
-import android.widget.Toast
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import com.meomeo.catdrive.MainActivity
 import com.meomeo.catdrive.R
@@ -37,7 +36,8 @@ class BroadcastService : Service(), LocationListener {
         private var mSerial: BluetoothSerial? = null
         private var mRunInBackground: Boolean = false
         private var mNotificationBuilder: Notification.Builder? = null
-        private var mTimer: Timer? = null
+        private var mPingTimer: Timer? = null
+        private var mReconnectTimer: Timer? = null
     }
 
     private var mLastNavigationData: NavigationData? = null
@@ -87,6 +87,7 @@ class BroadcastService : Service(), LocationListener {
                 out = out!!.replace(strFrom[i], strTo[i], false)
             return out
         }
+
         val json = JSONObject().apply {
             put("navigation", JSONObject().apply {
                 put("next_road", patchedVietnameseString(data?.nextDirection?.nextRoad))
@@ -96,10 +97,10 @@ class BroadcastService : Service(), LocationListener {
                 put("ete", data?.eta?.ete)
                 put("distance", data?.eta?.distance)
                 if (data?.actionIcon?.bitmap != null)
-                    put( "icon", with(BitmapHelper()) {
+                    put("icon", with(BitmapHelper()) {
                         toBase64(compressBitmap(data.actionIcon.bitmap!!, Size(32, 32)))
                     }
-                )
+                    )
             })
         }
         sendToDevice(json)
@@ -131,22 +132,22 @@ class BroadcastService : Service(), LocationListener {
                 .registerReceiver(navigationReceiver, IntentFilter(Intents.NavigationUpdate))
 
             subscribeToLocationUpdates()
-            if (PermissionCheck.checkBluetoothPermissions(applicationContext)) {
-                setupSerialConnection()
-                connectToLastDevice()
-            }
-            startTimer()
+            startPingTimer()
+            startReconnectTimer()
         }
 
         if (intent?.action == Intents.DisableServices) {
             runInBackground = false
             mSerial?.closeConnection()
             unsubscribeFromLocationUpdates()
+
             LocalBroadcastManager.getInstance(this).unregisterReceiver(navigationReceiver)
             mNotificationBuilder = null
+
             stopForeground(STOP_FOREGROUND_REMOVE)
             stopSelf()
-            stopTimer()
+            stopPingTimer()
+            stopReconnectTimer()
         }
 
         if (intent?.action == Intents.ConnectDevice) {
@@ -169,7 +170,7 @@ class BroadcastService : Service(), LocationListener {
 
         mSerial = BluetoothSerial()
         mSerial!!.setOnConnectedCallback {
-            Toast.makeText(this, "${it.name} connected!", Toast.LENGTH_SHORT).show()
+            // Toast.makeText(this, "${it.name} connected!", Toast.LENGTH_SHORT).show()
             LocalBroadcastManager.getInstance(applicationContext).sendBroadcast(
                 Intent(Intents.ConnectionUpdate).apply {
                     putExtra("status", "connected")
@@ -178,9 +179,10 @@ class BroadcastService : Service(), LocationListener {
                 }
             )
             updateNotificationText("Connected to ${it.name}")
+            stopReconnectTimer()
         }
         mSerial!!.setOnConnectionFailedCallback { device, reason ->
-            Toast.makeText(this, "${device.name} failed!", Toast.LENGTH_SHORT).show()
+            // Toast.makeText(this, "${device.name} failed!", Toast.LENGTH_SHORT).show()
             LocalBroadcastManager.getInstance(applicationContext).sendBroadcast(
                 Intent(Intents.ConnectionUpdate).apply {
                     putExtra("status", "failed")
@@ -191,7 +193,7 @@ class BroadcastService : Service(), LocationListener {
             )
         }
         mSerial!!.setOnDisconnectedCallback {
-            Toast.makeText(this, "${it.name} disconnected!", Toast.LENGTH_SHORT).show()
+            // Toast.makeText(this, "${it.name} disconnected!", Toast.LENGTH_SHORT).show()
             LocalBroadcastManager.getInstance(applicationContext).sendBroadcast(
                 Intent(Intents.ConnectionUpdate).apply {
                     putExtra("status", "disconnected")
@@ -200,12 +202,13 @@ class BroadcastService : Service(), LocationListener {
                 }
             )
             updateNotificationText("No device connected")
+            startReconnectTimer()
         }
     }
 
     fun connectToLastDevice() {
         if (mSerial != null && !mSerial!!.isConnected()) {
-            mSerial?.keepConnectionAlive()
+            // mSerial?.keepConnectionAlive()
             val sp = applicationContext.getSharedPreferences(SHARED_PREFERENCES_FILE, Context.MODE_PRIVATE)
             val name = sp.getString("last_device_name", null)
             val address = sp.getString("last_device_address", null)
@@ -228,10 +231,10 @@ class BroadcastService : Service(), LocationListener {
         manager.removeUpdates(this)
     }
 
-    private fun startTimer() {
-        if (mTimer == null)
-            mTimer = Timer()
-        mTimer!!.scheduleAtFixedRate(object : TimerTask() {
+    private fun startPingTimer() {
+        stopPingTimer()
+        mPingTimer = Timer()
+        mPingTimer!!.scheduleAtFixedRate(object : TimerTask() {
             override fun run() {
                 if (mLastNavigationData != null) {
                     sendToDevice(mLastNavigationData)
@@ -240,10 +243,44 @@ class BroadcastService : Service(), LocationListener {
         }, 25000, 25000)
     }
 
-    private fun stopTimer() {
-        if (mTimer != null) {
-            mTimer!!.cancel()
-            mTimer = null
+    private fun stopPingTimer() {
+        if (mPingTimer != null) {
+            mPingTimer!!.cancel()
+            mPingTimer = null
+        }
+    }
+
+    private fun startReconnectTimer() {
+        stopReconnectTimer()
+        mReconnectTimer = Timer()
+        mReconnectTimer!!.scheduleAtFixedRate(object : TimerTask() {
+            override fun run() {
+                Timber.d("reconnect timer elapsed")
+                if (!PermissionCheck.checkBluetoothPermissions(applicationContext)) {
+                    Timber.w("No BT permissions, stop reconnect timer!")
+                    stopReconnectTimer()
+                    return
+                }
+                if (mSerial?.isConnected() == true) {
+                    stopReconnectTimer()
+                    return
+                }
+
+                setupSerialConnection()
+                Timber.d("Trying to connect to last device...")
+                if (mSerial?.isBusyConnecting() == true) {
+                    Timber.w("Busy!")
+                } else {
+                    connectToLastDevice()
+                }
+            }
+        }, 1000, 15000)
+    }
+
+    private fun stopReconnectTimer() {
+        if (mReconnectTimer != null) {
+            mReconnectTimer!!.cancel()
+            mReconnectTimer = null
         }
     }
 
