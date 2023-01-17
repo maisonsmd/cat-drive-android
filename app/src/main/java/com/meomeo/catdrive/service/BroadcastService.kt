@@ -38,6 +38,7 @@ class BroadcastService : Service(), LocationListener {
         private var mNotificationBuilder: Notification.Builder? = null
         private var mPingTimer: Timer? = null
         private var mReconnectTimer: Timer? = null
+        private var mFirstPing: Boolean = true
     }
 
     private var mLastNavigationData: NavigationData? = null
@@ -132,7 +133,6 @@ class BroadcastService : Service(), LocationListener {
                 .registerReceiver(navigationReceiver, IntentFilter(Intents.NavigationUpdate))
 
             subscribeToLocationUpdates()
-            startPingTimer()
             startReconnectTimer()
         }
 
@@ -180,6 +180,8 @@ class BroadcastService : Service(), LocationListener {
             )
             updateNotificationText("Connected to ${it.name}")
             stopReconnectTimer()
+            sendPreferencesToDevice()
+            startPingTimer()
         }
         mSerial!!.setOnConnectionFailedCallback { device, reason ->
             // Toast.makeText(this, "${device.name} failed!", Toast.LENGTH_SHORT).show()
@@ -203,6 +205,7 @@ class BroadcastService : Service(), LocationListener {
             )
             updateNotificationText("No device connected")
             startReconnectTimer()
+            stopPingTimer()
         }
     }
 
@@ -234,13 +237,20 @@ class BroadcastService : Service(), LocationListener {
     private fun startPingTimer() {
         stopPingTimer()
         mPingTimer = Timer()
+        mFirstPing = true
         mPingTimer!!.scheduleAtFixedRate(object : TimerTask() {
             override fun run() {
-                if (mLastNavigationData != null) {
+                Timber.d("Ping timer elapsed")
+                if (mFirstPing) {
+                    // resend prefs just in case the device did not received the prefs at first connection
+                    sendPreferencesToDevice()
+                    mFirstPing = false
+                }
+                else if (mLastNavigationData != null) {
                     sendToDevice(mLastNavigationData)
                 }
             }
-        }, 25000, 25000)
+        }, 1000, 25000)
     }
 
     private fun stopPingTimer() {
@@ -271,7 +281,8 @@ class BroadcastService : Service(), LocationListener {
                 if (mSerial?.isBusyConnecting() == true) {
                     Timber.w("Busy!")
                 } else {
-                    connectToLastDevice()
+                    if (PermissionCheck.isBluetoothEnabled(applicationContext))
+                        connectToLastDevice()
                 }
             }
         }, 1000, 15000)
@@ -341,5 +352,16 @@ class BroadcastService : Service(), LocationListener {
 
     fun sendToDevice(jsonObject: JSONObject) {
         mSerial?.sendData(jsonObject.toString() + "\r\n")
+    }
+
+    fun sendPreferencesToDevice() {
+        sendToDevice(JSONObject().apply {
+            val sp = applicationContext.getSharedPreferences(SHARED_PREFERENCES_FILE, Context.MODE_PRIVATE)
+            put("preferences", JSONObject().apply {
+                put("display_backlight", sp.getString("display_backlight", "off") == "on")
+                put("display_contrast", sp.getInt("display_contrast", 0))
+                put("speed_limit", sp.getInt("speed_limit", 60))
+            })
+        })
     }
 }

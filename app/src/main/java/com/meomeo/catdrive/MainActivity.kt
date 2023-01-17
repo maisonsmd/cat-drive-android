@@ -112,7 +112,6 @@ class MainActivity : AppCompatActivity() {
                                 apply()
                             }
                         }
-                        sendPreferencesToDevice()
                         sendLastNavigationDataToDevice()
                     }
                 }
@@ -124,7 +123,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private val sharedPreferenceListener = OnSharedPreferenceChangeListener { _, _ -> sendPreferencesToDevice() }
+    private val sharedPreferenceListener = OnSharedPreferenceChangeListener { _, _ -> mBroadcastService?.sendPreferencesToDevice() }
 
     @SuppressLint("MissingPermission")
     private val mDeviceSelectionRequest = registerForActivityResult(
@@ -149,16 +148,6 @@ class MainActivity : AppCompatActivity() {
 
     fun openDeviceSelectionActivity() {
         mDeviceSelectionRequest.launch(Intent(applicationContext, DeviceSelectionActivity::class.java))
-    }
-
-    private fun sendPreferencesToDevice() {
-        mBroadcastService?.sendToDevice(JSONObject().apply {
-            put("preferences", JSONObject().apply {
-                put("display_backlight", mSharedPref.getString("display_backlight", "off") == "on")
-                put("display_contrast", mSharedPref.getInt("display_contrast", 0))
-                put("speed_limit", mSharedPref.getInt("speed_limit", 60))
-            })
-        })
     }
 
     private fun sendLastNavigationDataToDevice() {
