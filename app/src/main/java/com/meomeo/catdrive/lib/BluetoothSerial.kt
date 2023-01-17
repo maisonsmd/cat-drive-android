@@ -61,7 +61,7 @@ class BluetoothSerial() {
         mSocket = mDevice!!.createRfcommSocketToServiceRecord(uuid)
 
         if (mSocket == null) {
-            mOnConnectionFailedCallback?.let { it(mDevice!!, "Unable to create socket") }
+            onConnectFailed(mDevice!!, "Unable to create socket")
             return
         } else {
             connectInBackground()
@@ -115,6 +115,7 @@ class BluetoothSerial() {
 
     private fun onConnectFailed(device: BluetoothDevice, error: String) {
         Timber.e(error)
+        closeConnection()
         mOnConnectionFailedCallback?.let { it(device, error) }
     }
 
@@ -158,13 +159,17 @@ class BluetoothSerial() {
 
     fun closeConnection() {
         Timber.w("closing connection")
-        mConnectionCoroutine?.cancel()
-        mDevice?.let { onDisconnected(it) }
+        if (mConnectionCoroutine != null && mConnectionCoroutine?.isActive == true) {
+            mConnectionCoroutine!!.cancel()
+        }
+        mConnectionCoroutine = null
 
-        // stopWorker = true
-        mOutputStream?.close()
-        mInputStream?.close()
-        mSocket?.close()
+        if (isConnected()) {
+            onDisconnected(mDevice!!)
+            mOutputStream?.close()
+            mInputStream?.close()
+            mSocket?.close()
+        }
 
         mSocket = null
         mOutputStream = null
