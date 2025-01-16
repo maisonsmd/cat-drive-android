@@ -215,8 +215,8 @@ class BroadcastService : Service(), LocationListener {
             val sp = applicationContext.getSharedPreferences(SHARED_PREFERENCES_FILE, Context.MODE_PRIVATE)
             val name = sp.getString("last_device_name", null)
             val address = sp.getString("last_device_address", null)
-            Timber.i("trying connecting to $name address $address")
             if (name != null && address != null) {
+                Timber.i("trying connecting to $name address $address")
                 mSerial!!.connect(address)
             }
         }
@@ -238,7 +238,7 @@ class BroadcastService : Service(), LocationListener {
         stopPingTimer()
         mPingTimer = Timer()
         mFirstPing = true
-        mPingTimer!!.scheduleAtFixedRate(object : TimerTask() {
+        mPingTimer!!.schedule(object : TimerTask() {
             override fun run() {
                 Timber.d("Ping timer elapsed")
                 if (mFirstPing) {
@@ -263,7 +263,7 @@ class BroadcastService : Service(), LocationListener {
     private fun startReconnectTimer() {
         stopReconnectTimer()
         mReconnectTimer = Timer()
-        mReconnectTimer!!.scheduleAtFixedRate(object : TimerTask() {
+        mReconnectTimer!!.schedule(object : TimerTask() {
             override fun run() {
                 Timber.d("reconnect timer elapsed")
                 if (!PermissionCheck.checkBluetoothPermissions(applicationContext)) {
