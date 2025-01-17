@@ -26,5 +26,6 @@
     <string name="summary_display_contrast">Change device LCD contrast to improve visibility</string>
     <string name="title_display_contrast">Display contrast</string>
     <string name="title_speed_limit">Speed warning limit</string>
+    <string name="scan">Scan</string>
 
 </resources>

@@ -22,7 +22,7 @@ class MeowGoogleMapNotificationListener : NavigationListener() {
 
     override fun onBind(intent: Intent?): IBinder? {
         // Bind by activity
-        if (intent?.action == Intents.BindLocalService) {
+        if (intent?.action == Intents.BIND_LOCAL_SERVICE) {
             return mBinder
         }
         // Bind by OS
@@ -30,10 +30,10 @@ class MeowGoogleMapNotificationListener : NavigationListener() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (intent?.action == Intents.EnableServices) {
+        if (intent?.action == Intents.ENABLE_SERVICES) {
             enabled = true
         }
-        if (intent?.action == Intents.DisableServices) {
+        if (intent?.action == Intents.DISABLE_SERVICES) {
             enabled = false
         }
 
@@ -42,7 +42,7 @@ class MeowGoogleMapNotificationListener : NavigationListener() {
 
     override fun onNavigationNotificationUpdated(navNotification: NavigationNotification) {
         LocalBroadcastManager.getInstance(applicationContext).sendBroadcast(
-            Intent(Intents.NavigationUpdate).apply {
+            Intent(Intents.NAVIGATION_UPDATE).apply {
                 putExtra("navigation_data", navNotification.navigationData)
             }
         )
@@ -51,7 +51,7 @@ class MeowGoogleMapNotificationListener : NavigationListener() {
     override fun onNavigationNotificationRemoved(navNotification: NavigationNotification) {
         LocalBroadcastManager.getInstance(applicationContext).sendBroadcast(
             // Empty data (no extras)
-            Intent(Intents.NavigationUpdate)
+            Intent(Intents.NAVIGATION_UPDATE)
         )
     }
 }

@@ -4,19 +4,26 @@ import com.meomeo.catdrive.BuildConfig
 
 class Intents {
     companion object {
-        private const val appId = BuildConfig.APPLICATION_ID
+        private const val APP_ID = BuildConfig.APPLICATION_ID
 
-        const val EnableServices = "${appId}.intent.ENABLE_SERVICES"
-        const val DisableServices = "${appId}.intent.DISABLE_SERVICES"
-        const val BindLocalService = "${appId}.intent.LOCAL_BIND"
-        const val BackgroundServiceStatus = "${appId}.intent.SERVICE_RUNNING"
+        const val ENABLE_SERVICES = "${APP_ID}.intent.ENABLE_SERVICES"
+        const val DISABLE_SERVICES = "${APP_ID}.intent.DISABLE_SERVICES"
+        const val BIND_LOCAL_SERVICE = "${APP_ID}.intent.LOCAL_BIND"
+        const val BACKGROUND_SERVICE_STATUS = "${APP_ID}.intent.SERVICE_RUNNING"
 
-        const val ConnectDevice = "${appId}.intent.CONNECT_DEVICE"
-        const val ConnectionUpdate = "${appId}.intent.CONNECTION_UPDATE"
+        const val CONNECT_DEVICE = "${APP_ID}.intent.CONNECT_DEVICE"
+        const val CONNECTION_UPDATE = "${APP_ID}.intent.CONNECTION_UPDATE"
 
-        const val NavigationUpdate = "${appId}.intent.NAVIGATION_UPDATE"
-        const val GpsUpdate = "${appId}.intent.GPS_UPDATE"
+        const val NAVIGATION_UPDATE = "${APP_ID}.intent.NAVIGATION_UPDATE"
+        const val GPS_UPDATE = "${APP_ID}.intent.GPS_UPDATE"
 
-        const val OpenNotificationListenerSettings = "android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS"
+        const val OPEN_NOTIFICATION_LISTENER_SETTINGS =
+            "android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS"
+
+        const val ACTION_GATT_CONNECTED = "com.meomeo.bluetooth.le.ACTION_GATT_CONNECTED"
+        const val ACTION_GATT_DISCONNECTED = "com.meomeo.bluetooth.le.ACTION_GATT_DISCONNECTED"
+        const val ACTION_GATT_SERVICES_DISCOVERED =
+            "com.meomeo.bluetooth.le.ACTION_GATT_SERVICES_DISCOVERED"
+
     }
 }

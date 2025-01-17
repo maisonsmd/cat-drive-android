@@ -20,16 +20,15 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.CatDrive" >
         <activity
-            android:name=".ui.DeviceSelectionActivity"
+            android:name=".ui.BleDeviceSelectionActivity"
             android:exported="false"
             android:label="@string/title_devices"
             android:parentActivityName=".MainActivity"
-            android:screenOrientation="portrait" />
+            />
         <activity
             android:name=".MainActivity"
             android:exported="true"
-            android:label="@string/app_name"
-            android:screenOrientation="portrait">
+            >
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -47,11 +46,11 @@
         </service>
 
         <service
-            android:name=".service.BroadcastService"
+            android:name=".service.BleService"
             android:enabled="true"
             android:exported="false"
             android:foregroundServiceType="location"
-            android:label="BroadcastService" >
+            android:label="BleService" >
         </service>
     </application>
 

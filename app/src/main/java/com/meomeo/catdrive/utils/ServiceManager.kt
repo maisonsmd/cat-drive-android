@@ -8,7 +8,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.ViewModelProvider
 import com.meomeo.catdrive.MeowGoogleMapNotificationListener
 import com.meomeo.catdrive.lib.Intents
-import com.meomeo.catdrive.service.BroadcastService
+import com.meomeo.catdrive.service.BleService
 import com.meomeo.catdrive.ui.ActivityViewModel
 import timber.log.Timber
 
@@ -18,8 +18,8 @@ class ServiceManager {
             Timber.i("start services")
             PermissionCheck.requestEnableBluetooth(activity)
 
-            val action = Intents.EnableServices
-            activity.startService(Intent(activity, BroadcastService::class.java).apply { setAction(action) })
+            val action = Intents.ENABLE_SERVICES
+            activity.startService(Intent(activity, BleService::class.java).apply { setAction(action) })
             activity.startService(
                 Intent(
                     activity, MeowGoogleMapNotificationListener::class.java
@@ -27,8 +27,9 @@ class ServiceManager {
         }
 
         fun requestConnectDevice(activity: AppCompatActivity, device: BluetoothDevice) {
-            val action = Intents.ConnectDevice
-            val intent = Intent(activity, BroadcastService::class.java).apply {
+            Timber.d("requestConnectDevice: $device")
+            val action = Intents.CONNECT_DEVICE
+            val intent = Intent(activity, BleService::class.java).apply {
                 setAction(action)
                 putExtra("device", device)
             }
@@ -37,11 +38,11 @@ class ServiceManager {
 
         fun stopBroadcastService(activity: AppCompatActivity) {
             Timber.i("stop services")
-            val action = Intents.DisableServices
+            val action = Intents.DISABLE_SERVICES
             // Expect the target service to stop itself
             activity.startService(
                 Intent(
-                    activity, BroadcastService::class.java
+                    activity, BleService::class.java
                 ).apply { setAction(action) })
             activity.startService(
                 Intent(
@@ -59,7 +60,7 @@ class ServiceManager {
         }
 
         fun isBroadcastServiceRunningInBackground(activity: AppCompatActivity): Boolean {
-            return isServiceRunningInBackground(activity, BroadcastService::class.java)
+            return isServiceRunningInBackground(activity, BleService::class.java)
         }
 
     }

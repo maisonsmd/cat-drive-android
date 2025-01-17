@@ -1,6 +1,7 @@
 package com.meomeo.catdrive.utils
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothManager
 import android.content.Context
@@ -91,7 +92,7 @@ class PermissionCheck {
 
         fun requestNotificationAccessPermission(activity: AppCompatActivity) {
             @Suppress("DEPRECATION") activity.startActivityForResult(
-                Intent(Intents.OpenNotificationListenerSettings),
+                Intent(Intents.OPEN_NOTIFICATION_LISTENER_SETTINGS),
                 0
             )
         }
@@ -115,6 +116,7 @@ class PermissionCheck {
             return adapter.isEnabled
         }
 
+        @SuppressLint("MissingPermission")
         fun requestEnableBluetooth(activity: AppCompatActivity) {
             if (!checkBluetoothPermissions(activity)) {
                 Timber.e("No bluetooth permission!!!")

@@ -19,12 +19,11 @@ import com.google.android.material.bottomnavigation.BottomNavigationView
 import com.meomeo.catdrive.databinding.ActivityMainBinding
 import com.meomeo.catdrive.lib.Intents
 import com.meomeo.catdrive.lib.NavigationData
-import com.meomeo.catdrive.service.BroadcastService
+import com.meomeo.catdrive.service.BleService
 import com.meomeo.catdrive.ui.ActivityViewModel
-import com.meomeo.catdrive.ui.DeviceSelectionActivity
+import com.meomeo.catdrive.ui.BleDeviceSelectionActivity
 import com.meomeo.catdrive.utils.PermissionCheck
 import com.meomeo.catdrive.utils.ServiceManager
-import org.json.JSONObject
 import timber.log.Timber
 
 const val SHARED_PREFERENCES_FILE = "${BuildConfig.APPLICATION_ID}.preferences"
@@ -34,7 +33,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var mViewModel: ActivityViewModel
     private var mNavigationService: MeowGoogleMapNotificationListener? = null
     private var mNavigationServiceBound = false
-    private var mBroadcastService: BroadcastService? = null
+    private var mBroadcastService: BleService? = null
     private var mBroadcastServiceBound = false
     private lateinit var mSharedPref: SharedPreferences
 
@@ -43,7 +42,11 @@ class MainActivity : AppCompatActivity() {
         mBroadcastService?.connectToLastDevice()
     }
 
-    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         // notify settings fragment to update the permissions to view
         mViewModel.permissionUpdatedTimestamp.postValue(System.currentTimeMillis())
@@ -72,7 +75,8 @@ class MainActivity : AppCompatActivity() {
     // Bind BroadcastService service
     private val broadcastConnection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
-            if (service !is BroadcastService.LocalBinder) return
+            Timber.d("Service $name connected")
+            if (service !is BleService.LocalBinder) return
 
             mBroadcastService = service.getService()
             mBroadcastServiceBound = true
@@ -101,8 +105,9 @@ class MainActivity : AppCompatActivity() {
     private val broadcastReceiver: BroadcastReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent) {
             when (intent.action) {
-                Intents.ConnectionUpdate -> {
+                Intents.CONNECTION_UPDATE -> {
                     val connectedDevice = mBroadcastService?.connectedDevice
+                    Timber.d("Connection update: ${intent.getStringExtra("status")} $mBroadcastService ${connectedDevice}")
                     mViewModel.connectedDevice.postValue(connectedDevice)
                     connectedDevice?.let {
                         if (PermissionCheck.checkBluetoothConnectPermission(applicationContext)) {
@@ -115,15 +120,22 @@ class MainActivity : AppCompatActivity() {
                         sendLastNavigationDataToDevice()
                     }
                 }
-                Intents.GpsUpdate -> mViewModel.speed.postValue(intent.getIntExtra("speed", 0))
-                Intents.BackgroundServiceStatus -> {
-                    mViewModel.serviceRunInBackground.postValue(intent.getBooleanExtra("run_in_background", false))
+
+                Intents.GPS_UPDATE -> mViewModel.speed.postValue(intent.getIntExtra("speed", 0))
+                Intents.BACKGROUND_SERVICE_STATUS -> {
+                    mViewModel.serviceRunInBackground.postValue(
+                        intent.getBooleanExtra(
+                            "run_in_background",
+                            false
+                        )
+                    )
                 }
             }
         }
     }
 
-    private val sharedPreferenceListener = OnSharedPreferenceChangeListener { _, _ -> mBroadcastService?.sendPreferencesToDevice() }
+    private val sharedPreferenceListener =
+        OnSharedPreferenceChangeListener { _, _ -> mBroadcastService?.sendPreferencesToDevice() }
 
     @SuppressLint("MissingPermission")
     private val mDeviceSelectionRequest = registerForActivityResult(
@@ -135,19 +147,32 @@ class MainActivity : AppCompatActivity() {
                 // Toast.makeText(this, "Connecting to ${device.name}...", Toast.LENGTH_SHORT).show()
                 ServiceManager.requestConnectDevice(this, device)
             } else {
-                Toast.makeText(this, "No bluetooth permission or BT not enabled!", Toast.LENGTH_SHORT).show()
+                Toast.makeText(
+                    this,
+                    "No bluetooth permission or BT not enabled!",
+                    Toast.LENGTH_SHORT
+                ).show()
             }
         }
     }
 
     private fun checkPermissions() {
         if (!PermissionCheck.allPermissionsGranted(this)) {
-            Toast.makeText(this, "Some permissions are not granted, see Settings page", Toast.LENGTH_LONG).show()
+            Toast.makeText(
+                this,
+                "Some permissions are not granted, see Settings page",
+                Toast.LENGTH_LONG
+            ).show()
         }
     }
 
     fun openDeviceSelectionActivity() {
-        mDeviceSelectionRequest.launch(Intent(applicationContext, DeviceSelectionActivity::class.java))
+        mDeviceSelectionRequest.launch(
+            Intent(
+                applicationContext,
+                BleDeviceSelectionActivity::class.java
+            )
+        )
     }
 
     private fun sendLastNavigationDataToDevice() {
@@ -189,27 +214,31 @@ class MainActivity : AppCompatActivity() {
 
         // Listen to MeowGoogleMapNotificationListener dat
         LocalBroadcastManager.getInstance(this)
-            .registerReceiver(navigationReceiver, IntentFilter(Intents.NavigationUpdate))
+            .registerReceiver(navigationReceiver, IntentFilter(Intents.NAVIGATION_UPDATE))
         // Listen to BroadcastService data
-        LocalBroadcastManager.getInstance(this).registerReceiver(broadcastReceiver, IntentFilter().apply {
-            addAction(Intents.GpsUpdate)
-            addAction(Intents.ConnectionUpdate)
-            addAction(Intents.BackgroundServiceStatus)
-        })
+        LocalBroadcastManager.getInstance(this)
+            .registerReceiver(broadcastReceiver, IntentFilter().apply {
+                addAction(Intents.GPS_UPDATE)
+                addAction(Intents.CONNECTION_UPDATE)
+                addAction(Intents.BACKGROUND_SERVICE_STATUS)
+            })
 
         Intent(this, MeowGoogleMapNotificationListener::class.java).also { intent ->
-            intent.action = Intents.BindLocalService
+            intent.action = Intents.BIND_LOCAL_SERVICE
         }.also { intent -> bindService(intent, navigationConnection, Context.BIND_AUTO_CREATE) }
-        Intent(this, BroadcastService::class.java)
-            .also { intent -> intent.action = Intents.BindLocalService }
+        Intent(this, BleService::class.java)
+            .also { intent -> intent.action = Intents.BIND_LOCAL_SERVICE }
             .also { intent -> bindService(intent, broadcastConnection, Context.BIND_AUTO_CREATE) }
 
         mSharedPref.registerOnSharedPreferenceChangeListener(sharedPreferenceListener)
     }
 
+    // Caution: opening device selection activity stops this main activity
     override fun onStop() {
         LocalBroadcastManager.getInstance(this).unregisterReceiver(navigationReceiver)
         LocalBroadcastManager.getInstance(this).unregisterReceiver(broadcastReceiver)
+
+        Timber.i("onStop")
 
         if (mNavigationServiceBound) {
             mNavigationServiceBound = false
