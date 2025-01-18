@@ -10,11 +10,13 @@ import androidx.core.graphics.drawable.toDrawable
 import androidx.core.graphics.scale
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
+import com.meomeo.catdrive.MainActivity
 import com.meomeo.catdrive.R
 import com.meomeo.catdrive.databinding.FragmentHomeBinding
 import com.meomeo.catdrive.lib.BitmapHelper
 import com.meomeo.catdrive.lib.NavigationData
 import com.meomeo.catdrive.ui.ActivityViewModel
+import com.meomeo.catdrive.utils.ServiceManager
 import timber.log.Timber
 
 
@@ -25,14 +27,13 @@ class HomeFragment : Fragment() {
     private val binding get() = mUiBinding!!
 
     private fun displayNavigationData(data: NavigationData?) {
-        val bh = BitmapHelper()
-
         val bitmap =
             if (!mDebugImage) data?.actionIcon?.bitmap
             else resources.getDrawable(R.drawable.roundabout).toBitmap()
 
         binding.imgTurnIcon.setImageBitmap(bitmap)
         /*
+        val bh = BitmapHelper()
         val compressed = bh.compressBitmap(bitmap, Size(32, 32))
         binding.imgScaled.setImageDrawable(
             BitmapHelper.AliasingDrawableWrapper(
@@ -63,6 +64,11 @@ class HomeFragment : Fragment() {
         savedInstanceState: Bundle?
     ): View {
         mUiBinding = FragmentHomeBinding.inflate(inflater, container, false)
+
+        mUiBinding!!.btnDisconnect.setOnClickListener {
+            Timber.i("Disconnect request");
+            ServiceManager.stopBroadcastService(activity as MainActivity)
+        }
 
         val viewModel = ViewModelProvider(requireActivity())[ActivityViewModel::class.java]
         viewModel.navigationData.observe(viewLifecycleOwner) {

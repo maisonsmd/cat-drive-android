@@ -141,7 +141,7 @@ class BleDeviceSelectionActivity : AppCompatActivity() {
             if (isScanning) {
                 isScanning = false
                 scanButton.isEnabled = true
-                mAdapter.bluetoothLeScanner.stopScan(mCallback)
+                mAdapter.bluetoothLeScanner?.stopScan(mCallback)
             }
         }, 5000)
     }

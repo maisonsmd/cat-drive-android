@@ -8,17 +8,17 @@
             android:title="@string/device_connect" />
         <SwitchPreference
             android:defaultValue="false"
-            android:key="device_backlight"
-            android:summary="@string/summary_device_backlight"
-            android:title="@string/title_device_backlight" />
+            android:key="display_light_theme"
+            android:summary="@string/summary_display_light_theme"
+            android:title="@string/title_display_light_theme" />
         <SeekBarPreference
             android:defaultValue="20"
-            android:key="device_contrast"
-            android:max="50"
+            android:key="display_brightness"
+            android:max="100"
             android:min="0"
             app:seekBarIncrement="1"
-            android:summary="@string/summary_display_contrast"
-            android:title="@string/title_display_contrast" />
+            android:summary="@string/summary_display_brightness"
+            android:title="@string/title_display_brightness" />
         <EditTextPreference
             android:defaultValue="60"
             android:key="speed_warning_limit"

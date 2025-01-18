@@ -11,6 +11,7 @@ class Intents {
         const val BIND_LOCAL_SERVICE = "${APP_ID}.intent.LOCAL_BIND"
         const val BACKGROUND_SERVICE_STATUS = "${APP_ID}.intent.SERVICE_RUNNING"
 
+        const val DISCONNECT_DEVICE = "${APP_ID}.intent.DISCONNECT_DEVICE"
         const val CONNECT_DEVICE = "${APP_ID}.intent.CONNECT_DEVICE"
         const val CONNECTION_UPDATE = "${APP_ID}.intent.CONNECTION_UPDATE"
 

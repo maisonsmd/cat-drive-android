@@ -37,6 +37,7 @@ class MainActivity : AppCompatActivity() {
     private var mBroadcastServiceBound = false
     private lateinit var mSharedPref: SharedPreferences
 
+    @Deprecated("Deprecated in Java")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         mBroadcastService?.connectToLastDevice()
@@ -107,7 +108,7 @@ class MainActivity : AppCompatActivity() {
             when (intent.action) {
                 Intents.CONNECTION_UPDATE -> {
                     val connectedDevice = mBroadcastService?.connectedDevice
-                    Timber.d("Connection update: ${intent.getStringExtra("status")} $mBroadcastService ${connectedDevice}")
+                    Timber.d("Connection update: ${intent.getStringExtra("status")} ${connectedDevice?.address}")
                     mViewModel.connectedDevice.postValue(connectedDevice)
                     connectedDevice?.let {
                         if (PermissionCheck.checkBluetoothConnectPermission(applicationContext)) {

@@ -21,10 +21,10 @@
     <string name="permission_post_notification">Posting notifications</string>
     <string name="permission_access_location">Accessing location</string>
     <string name="permission_access_bluetooth">Accessing bluetooth</string>
-    <string name="summary_device_backlight">Turn device display backlight on or off</string>
-    <string name="title_device_backlight">Display backlight</string>
-    <string name="summary_display_contrast">Change device LCD contrast to improve visibility</string>
-    <string name="title_display_contrast">Display contrast</string>
+    <string name="summary_display_light_theme">Turn device display light theme on or off</string>
+    <string name="title_display_light_theme">LCD light theme</string>
+    <string name="summary_display_brightness">Change device LCD brightness to improve visibility</string>
+    <string name="title_display_brightness">Display brightness</string>
     <string name="title_speed_limit">Speed warning limit</string>
     <string name="scan">Scan</string>
 

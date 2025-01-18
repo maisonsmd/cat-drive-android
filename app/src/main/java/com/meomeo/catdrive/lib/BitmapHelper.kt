@@ -29,6 +29,10 @@ class BitmapHelper {
     }
 
     fun toBase64(source: Bitmap): String {
+        return Base64.encodeToString(toBlackAndWhiteBuffer(source), Base64.NO_WRAP)
+    }
+
+    fun toBlackAndWhiteBuffer(source: Bitmap): ByteArray {
         val w = source.width
         val h = source.height
         val byteWidth = (w + 7) / 8
@@ -41,8 +45,7 @@ class BitmapHelper {
                 buffer[byteIndex] = buffer[byteIndex] or (px shl (7 - x % 8)).toByte()
             }
         }
-
-        return Base64.encodeToString(buffer, Base64.NO_WRAP)
+        return buffer
     }
 
     private fun ditherImage(source: Bitmap): Bitmap {

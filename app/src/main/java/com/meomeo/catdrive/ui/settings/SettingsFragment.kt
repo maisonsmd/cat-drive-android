@@ -22,8 +22,8 @@ class SettingsFragment : PreferenceFragmentCompat() {
     private lateinit var mAccessLocationCheckbox: CheckBoxPreference
     private lateinit var mAccessBluetoothCheckbox: CheckBoxPreference
     private lateinit var mConnectDeviceButton: Preference
-    private lateinit var mDisplayBacklightSwitch: SwitchPreference
-    private lateinit var mDisplayContrastSlider: SeekBarPreference
+    private lateinit var mDisplayLightThemeSwitch: SwitchPreference
+    private lateinit var mDisplayBrightnessSlider: SeekBarPreference
     private lateinit var mSpeedLimitEdit: EditTextPreference
 
     private lateinit var mSharedPref: SharedPreferences
@@ -37,7 +37,9 @@ class SettingsFragment : PreferenceFragmentCompat() {
         refreshSettings()
     }
 
-    override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
+    override fun onCreateView(
+        inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
+    ): View {
         val viewModel = ViewModelProvider(requireActivity())[ActivityViewModel::class.java]
 
         viewModel.permissionUpdatedTimestamp.observe(viewLifecycleOwner) {
@@ -45,10 +47,9 @@ class SettingsFragment : PreferenceFragmentCompat() {
         }
 
         viewModel.connectedDevice.observe(viewLifecycleOwner) {
-            if (PermissionCheck.checkBluetoothConnectPermission(requireContext()))
-                mConnectDeviceButton.summary = if (it !== null) "Connected to ${it.name}" else "No device connected"
-            else
-                mConnectDeviceButton.summary = "Please check bluetooth permissions!"
+            if (PermissionCheck.checkBluetoothConnectPermission(requireContext())) mConnectDeviceButton.summary =
+                if (it !== null) "Connected to ${it.name}" else "No device connected"
+            else mConnectDeviceButton.summary = "Please check bluetooth permissions!"
         }
 
         return super.onCreateView(inflater, container, savedInstanceState)
@@ -65,37 +66,33 @@ class SettingsFragment : PreferenceFragmentCompat() {
         mAccessLocationCheckbox = preferenceScreen.findPreference("access_location")!!
         mAccessBluetoothCheckbox = preferenceScreen.findPreference("access_bluetooth")!!
         mConnectDeviceButton = preferenceScreen.findPreference("connect_device")!!
-        mDisplayBacklightSwitch = preferenceScreen.findPreference("device_backlight")!!
-        mDisplayContrastSlider = preferenceScreen.findPreference("device_contrast")!!
+        mDisplayLightThemeSwitch = preferenceScreen.findPreference("display_light_theme")!!
+        mDisplayBrightnessSlider = preferenceScreen.findPreference("display_brightness")!!
         mSpeedLimitEdit = preferenceScreen.findPreference("speed_warning_limit")!!
 
-        mSharedPref = mainActivity.getSharedPreferences(SHARED_PREFERENCES_FILE, Context.MODE_PRIVATE)
+        mSharedPref =
+            mainActivity.getSharedPreferences(SHARED_PREFERENCES_FILE, Context.MODE_PRIVATE)
 
         refreshSettings()
 
         mServiceEnableSwitch.setOnPreferenceChangeListener { _, newValue ->
-            if (newValue as Boolean)
-                ServiceManager.startBroadcastService(mainActivity)
-            else
-                ServiceManager.stopBroadcastService(mainActivity)
+            if (newValue as Boolean) ServiceManager.startBroadcastService(mainActivity)
+            else ServiceManager.stopBroadcastService(mainActivity)
             return@setOnPreferenceChangeListener true
         }
 
         mAccessNotificationCheckbox.setOnPreferenceChangeListener { _, newValue ->
-            if (newValue as Boolean)
-                PermissionCheck.requestNotificationAccessPermission(activity as MainActivity)
+            if (newValue as Boolean) PermissionCheck.requestNotificationAccessPermission(activity as MainActivity)
             return@setOnPreferenceChangeListener false
         }
 
         mAccessLocationCheckbox.setOnPreferenceChangeListener { _, newValue ->
-            if (newValue as Boolean)
-                PermissionCheck.requestLocationAccessPermission(activity as MainActivity)
+            if (newValue as Boolean) PermissionCheck.requestLocationAccessPermission(activity as MainActivity)
             return@setOnPreferenceChangeListener false
         }
 
         mAccessBluetoothCheckbox.setOnPreferenceChangeListener { _, newValue ->
-            if (newValue as Boolean)
-                PermissionCheck.requestBluetoothAccessPermissions(activity as MainActivity)
+            if (newValue as Boolean) PermissionCheck.requestBluetoothAccessPermissions(activity as MainActivity)
             return@setOnPreferenceChangeListener false
         }
 
@@ -104,27 +101,27 @@ class SettingsFragment : PreferenceFragmentCompat() {
             return@setOnPreferenceClickListener false
         }
 
-        mDisplayBacklightSwitch.setOnPreferenceChangeListener { _, newValue ->
+        mDisplayLightThemeSwitch.setOnPreferenceChangeListener { _, newValue ->
             with(mSharedPref.edit()) {
-                putString("display_backlight", if (newValue as Boolean) "on" else "off")
+                putBoolean("display_light_theme", (newValue as Boolean))
                 apply()
             }
             return@setOnPreferenceChangeListener true
         }
 
-        mDisplayContrastSlider.setOnPreferenceChangeListener { _, newValue ->
+        mDisplayBrightnessSlider.setOnPreferenceChangeListener { _, newValue ->
             with(mSharedPref.edit()) {
-                putInt("display_contrast", newValue as Int)
+                putInt("display_brightness", newValue as Int)
                 apply()
             }
-            mDisplayContrastSlider.summary = newValue.toString()
+            mDisplayBrightnessSlider.summary = newValue.toString()
             return@setOnPreferenceChangeListener true
         }
 
         mSpeedLimitEdit.setOnPreferenceChangeListener { _, newValue ->
             mSpeedLimitEdit.summary = (newValue as String) + " km/h"
             with(mSharedPref.edit()) {
-                putInt("speed_limit", (newValue as String).toInt())
+                putInt("speed_limit", (newValue).toInt())
                 apply()
             }
             return@setOnPreferenceChangeListener true
@@ -135,11 +132,12 @@ class SettingsFragment : PreferenceFragmentCompat() {
         val context = requireContext()
 
         mServiceEnableSwitch.isEnabled = PermissionCheck.allPermissionsGranted(context)
-        mServiceEnableSwitch.isChecked = ServiceManager.isBroadcastServiceRunningInBackground(activity as MainActivity)
+        mServiceEnableSwitch.isChecked =
+            ServiceManager.isBroadcastServiceRunningInBackground(activity as MainActivity)
 
-        mDisplayBacklightSwitch.isChecked = mSharedPref.getString("display_backlight", "off") == "on"
-        mDisplayContrastSlider.value = mSharedPref.getInt("display_contrast", 0)
-        mDisplayContrastSlider.summary = mDisplayContrastSlider.value.toString()
+        mDisplayLightThemeSwitch.isChecked = mSharedPref.getBoolean("display_light_theme", true)
+        mDisplayBrightnessSlider.value = mSharedPref.getInt("display_brightness", 0)
+        mDisplayBrightnessSlider.summary = mDisplayBrightnessSlider.value.toString()
         mSpeedLimitEdit.summary = mSharedPref.getInt("speed_limit", 0).toString() + " km/h"
 
         PermissionCheck.checkNotificationsAccessPermission(context).also {

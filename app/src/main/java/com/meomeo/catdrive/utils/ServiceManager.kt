@@ -19,7 +19,11 @@ class ServiceManager {
             PermissionCheck.requestEnableBluetooth(activity)
 
             val action = Intents.ENABLE_SERVICES
-            activity.startService(Intent(activity, BleService::class.java).apply { setAction(action) })
+            activity.startService(
+                Intent(
+                    activity,
+                    BleService::class.java
+                ).apply { setAction(action) })
             activity.startService(
                 Intent(
                     activity, MeowGoogleMapNotificationListener::class.java
@@ -38,23 +42,33 @@ class ServiceManager {
 
         fun stopBroadcastService(activity: AppCompatActivity) {
             Timber.i("stop services")
-            val action = Intents.DISABLE_SERVICES
+
+            activity.startService(
+                Intent(
+                    activity,
+                    BleService::class.java
+                ).apply { action = (Intents.DISCONNECT_DEVICE) })
+
             // Expect the target service to stop itself
             activity.startService(
                 Intent(
                     activity, BleService::class.java
-                ).apply { setAction(action) })
+                ).apply { action = Intents.DISABLE_SERVICES })
             activity.startService(
                 Intent(
                     activity, MeowGoogleMapNotificationListener::class.java
-                ).apply { setAction(action) })
+                ).apply { action = Intents.DISABLE_SERVICES })
         }
 
         @Suppress("DEPRECATION")
-        private fun <T> isServiceRunningInBackground(activity: AppCompatActivity, service: Class<T>): Boolean {
-            val running = (activity.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager).getRunningServices(
-                Integer.MAX_VALUE
-            ).any { it.service.className == service.name }
+        private fun <T> isServiceRunningInBackground(
+            activity: AppCompatActivity,
+            service: Class<T>
+        ): Boolean {
+            val running =
+                (activity.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager).getRunningServices(
+                    Integer.MAX_VALUE
+                ).any { it.service.className == service.name }
             val viewModel = ViewModelProvider(activity)[ActivityViewModel::class.java]
             return running && viewModel.serviceRunInBackground.value == true
         }
