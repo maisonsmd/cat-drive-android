@@ -36,6 +36,10 @@ data class NavigationIcon(
     override fun close() {
         bitmap?.recycle()
     }
+
+    override fun hashCode(): Int {
+        return bitmap?.hashCode() ?: 0
+    }
 }
 
 @Parcelize
@@ -46,6 +50,12 @@ data class NavigationTimestamp(
 ) : Parcelable, MutableContent() {
     override fun equals(other: Any?): Boolean {
         return super.equals(other)
+    }
+
+    override fun hashCode(): Int {
+        var result = super.hashCode()
+        result = 31 * result + timestamp.hashCode()
+        return result
     }
 }
 
@@ -60,5 +70,14 @@ data class NavigationData(
 ) : Parcelable, Introspectable, MutableContent() {
     override fun equals(other: Any?): Boolean {
         return super.equals(other)
+    }
+
+    override fun hashCode(): Int {
+        var result = super.hashCode()
+        result = 31 * result + nextDirection.hashCode()
+        result = 31 * result + eta.hashCode()
+        result = 31 * result + actionIcon.hashCode()
+        result = 31 * result + postTime.hashCode()
+        return result
     }
 }

@@ -11,12 +11,14 @@ import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothGatt
 import android.bluetooth.BluetoothGattCallback
 import android.bluetooth.BluetoothGattCharacteristic
+import android.bluetooth.BluetoothGattDescriptor
 import android.bluetooth.BluetoothManager
 import android.bluetooth.BluetoothProfile
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.graphics.Bitmap
 import android.graphics.Color
 import android.location.Location
 import android.location.LocationListener
@@ -36,9 +38,13 @@ import com.meomeo.catdrive.lib.Intents
 import com.meomeo.catdrive.lib.NavigationData
 import com.meomeo.catdrive.utils.PermissionCheck
 import timber.log.Timber
+import java.security.MessageDigest
+import java.security.NoSuchAlgorithmException
 import java.util.Timer
 import java.util.TimerTask
+import java.util.UUID
 import kotlin.math.ceil
+
 
 @SuppressLint("MissingPermission")
 class BleService : Service(), LocationListener {
@@ -65,6 +71,7 @@ class BleService : Service(), LocationListener {
     private var mLastNavigationData: NavigationData? = null
     private var mDataWriteQueue: BleWriteQueue = BleWriteQueue()
     private var mIsSending: Boolean = false
+    private var mIconMap: MutableMap<String, ByteArray> = mutableMapOf()
 
     private val navigationReceiver: BroadcastReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent) {
@@ -90,9 +97,14 @@ class BleService : Service(), LocationListener {
             )
         }
 
-    inner class ReconnectTask: TimerTask() {
+    inner class ReconnectTask : TimerTask() {
         override fun run() {
             Timber.d("reconnect timer elapsed")
+            if (mConnectionState != BluetoothProfile.STATE_DISCONNECTED) {
+                Timber.w("Why this timer is still running?")
+//                stopReconnectTimer()
+                return
+            }
             if (!PermissionCheck.checkBluetoothPermissions(applicationContext)) {
                 Timber.w("No BT permissions, stop reconnect timer!")
                 stopReconnectTimer()
@@ -112,6 +124,11 @@ class BleService : Service(), LocationListener {
     inner class PingTask : TimerTask() {
         override fun run() {
             Timber.d("Ping timer elapsed")
+            if (mConnectionState != BluetoothProfile.STATE_CONNECTED) {
+                Timber.w("This timer should not be running!!")
+//                stopPingTimer()
+                return
+            }
             if (mFirstPing) {
                 // resend prefs just in case the device did not received the prefs at first connection
                 sendPreferencesToDevice()
@@ -148,7 +165,9 @@ class BleService : Service(), LocationListener {
                 .registerReceiver(navigationReceiver, IntentFilter(Intents.NAVIGATION_UPDATE))
 
             subscribeToLocationUpdates()
-            startReconnectTimer()
+
+            if (mConnectionState == BluetoothProfile.STATE_DISCONNECTED)
+                startReconnectTimer()
         }
 
         if (intent?.action == Intents.DISABLE_SERVICES) {
@@ -225,20 +244,11 @@ class BleService : Service(), LocationListener {
             if (status == BluetoothGatt.GATT_SUCCESS) {
                 Timber.i("onServicesDiscovered: Success!")
 
-                for (service in gatt!!.services) {
-                    for (ch in service.characteristics) {
-                        mDataWriteQueue.add(
-                            QueueItem(
-                                ch.uuid.toString(),
-                                Math.random().toString().toByteArray()
-                            )
-                        )
-                    }
-                }
                 mConnectionState = BluetoothProfile.STATE_CONNECTED
 
                 mIsSending = false
                 mDataWriteQueue.clear()
+                mIconMap.clear()
 
                 updateNotificationText("Connected to ${mDevice!!.name}")
                 stopReconnectTimer()
@@ -274,14 +284,14 @@ class BleService : Service(), LocationListener {
     }
 
     private fun write(item: QueueItem) {
-        Timber.d("writing ${item.uuid}=${item.data}")
+        Timber.d("writing ${item.uuid}=${item.data.toString(Charsets.UTF_8)}")
         if (mConnectionState != BluetoothProfile.STATE_CONNECTED) {
-            Timber.e("write: not connected")
+//            Timber.e("write: not connected")
             return
         }
 
         if (mIsSending) {
-            Timber.d("Busy, queueing")
+            Timber.d("Busy with ${mDataWriteQueue.size} requests, queueing")
             mDataWriteQueue.add(item)
             return
         }
@@ -302,11 +312,10 @@ class BleService : Service(), LocationListener {
 
     private fun findCharacteristic(uuid: String): BluetoothGattCharacteristic? {
         var characteristic: BluetoothGattCharacteristic? = null
-        mBluetoothGatt?.services?.forEach { service ->
-            service.characteristics.forEach { ch ->
-                if (ch.uuid.toString() == uuid)
-                    characteristic = ch
-            }
+        val service = mBluetoothGatt?.getService(UUID.fromString(BleCharacteristics.SERVICE_UUID))
+        service?.characteristics?.forEach { ch ->
+            if (ch.uuid.toString() == uuid)
+                characteristic = ch
         }
         return characteristic
     }
@@ -364,64 +373,94 @@ class BleService : Service(), LocationListener {
     fun sendPreferencesToDevice() {
         val sp =
             applicationContext.getSharedPreferences(SHARED_PREFERENCES_FILE, Context.MODE_PRIVATE)
-        write(
-            QueueItem(
-                BleCharacteristics.CHA_SETT_THEME,
-                sp.getBoolean("display_light_theme", true).toString().toByteArray()
-            )
+
+        val map = mapOf(
+            "lightTheme" to sp.getBoolean("display_light_theme", true).toString(),
+            "brightness" to sp.getInt("display_brightness", 50).toString(),
+            "speedLimit" to sp.getInt("speed_limit", 50).toString()
         )
+
         write(
-            QueueItem(
-                BleCharacteristics.CHA_SETT_BRIGHTNESS,
-                sp.getInt("display_brightness", 50).toString().toByteArray()
-            )
-        )
-        write(
-            QueueItem(
-                BleCharacteristics.CHA_SETT_SPEED_LIMIT,
-                sp.getInt("speed_limit", 50).toString().toByteArray()
-            )
+            QueueItem(BleCharacteristics.CHA_SETTINGS, toKeyValString(map).toByteArray())
         )
     }
 
     fun sendToDevice(data: NavigationData?) {
-        write(
-            QueueItem(
-                BleCharacteristics.CHA_NAV_NEXT_ROAD,
-                (data?.nextDirection?.nextRoad ?: "").toByteArray()
+        fun sanitize(str: String): String {
+            // Remove non-breaking space
+            return str.replace("\u00a0", " ").replace("\n", " ").replace("…", "...")
+        }
+
+        val bitmap = data?.actionIcon?.bitmap
+
+        var compressed: ByteArray? = bitmap?.let {
+            val helper = BitmapHelper()
+            helper.toBlackAndWhiteBuffer(
+                helper.compressBitmap(
+                    bitmap,
+                    Size(64, 62)
+                )
             )
+        }
+
+        var iconHash = ""
+        if (compressed != null) {
+            iconHash = md5(compressed)
+            iconHash = iconHash.substring(iconHash.length - 10, iconHash.length)
+        }
+
+        val map = mapOf(
+            "nextRd" to sanitize(data?.nextDirection?.nextRoad ?: ""),
+            "nextRdDesc" to sanitize(data?.nextDirection?.nextRoadAdditionalInfo ?: ""),
+            "distToNext" to sanitize(data?.nextDirection?.distance ?: ""),
+            "totalDist" to sanitize(data?.eta?.distance ?: ""),
+            "eta" to sanitize(data?.eta?.eta ?: ""),
+            "ete" to sanitize(data?.eta?.ete ?: ""),
+            "iconHash" to (iconHash)
         )
-        write(
-            QueueItem(
-                BleCharacteristics.CHA_NAV_NEXT_ROAD_DESC,
-                (data?.nextDirection?.nextRoadAdditionalInfo ?: "").toByteArray()
-            )
-        )
-        write(
-            QueueItem(
-                BleCharacteristics.CHA_NAV_DISTANCE_TO_NEXT_TURN,
-                (data?.nextDirection?.distance ?: "").toByteArray()
-            )
-        )
-        write(QueueItem(BleCharacteristics.CHA_NAV_ETA, (data?.eta?.eta ?: "").toByteArray()))
-        write(QueueItem(BleCharacteristics.CHA_NAV_ETE, (data?.eta?.ete ?: "").toByteArray()))
-        write(
-            QueueItem(
-                BleCharacteristics.CHA_NAV_TOTAL_DISTANCE,
-                (data?.eta?.distance ?: "").toByteArray()
-            )
-        )
-        data?.actionIcon?.bitmap?.let { bitmap ->
-            bitmap.let {
-                val compressed =
-                    with(BitmapHelper()) { toBlackAndWhiteBuffer(compressBitmap(it, Size(64, 64))) }
-//                Timber.w("Compressed size: ${compressed.size}")
-                compressed
-            }.also {
-                write(BleWriteQueue.QueueItem(BleCharacteristics.CHA_NAV_TBT_ICON, it, true))
+
+        write(QueueItem(BleCharacteristics.CHA_NAV, toKeyValString(map).toByteArray()))
+
+        // Only send once
+        if (iconHash != "" && compressed != null && !mIconMap.containsKey(iconHash)) {
+            if (mConnectionState == BluetoothProfile.STATE_CONNECTED) {
+                // Store the bitmap for later use
+                mIconMap[iconHash] = compressed
+
+                compressed.let {
+                    val withIconHash = ("$iconHash;").toByteArray()
+                    Timber.w("it size: ${it.size}")
+                    write(QueueItem(BleCharacteristics.CHA_NAV_TBT_ICON, withIconHash + it, true))
+                }
             }
+        } else {
+            Timber.i("Icon $iconHash already sent before")
         }
     }
+
+    private fun md5(s: ByteArray): String {
+        return try {
+            // Create MD5 Hash
+            val digest = MessageDigest.getInstance("MD5")
+            digest.update(s)
+            val messageDigest = digest.digest()
+
+            // Create Hex String
+            val hexString = StringBuilder()
+            for (aMessageDigest in messageDigest) {
+                var h = Integer.toHexString(0xFF and aMessageDigest.toInt())
+                while (h.length < 2) {
+                    h = "0$h"
+                }
+                hexString.append(h)
+            }
+            hexString.toString()
+        } catch (e: NoSuchAlgorithmException) {
+            e.printStackTrace()
+            ""
+        }
+    }
+
 
     private fun subscribeToLocationUpdates() {
         if (PermissionCheck.checkLocationAccessPermission(applicationContext)) {
@@ -453,7 +492,7 @@ class BleService : Service(), LocationListener {
     private fun startReconnectTimer() {
         stopReconnectTimer()
         mReconnectTimer = Timer()
-        mReconnectTimer!!.schedule(ReconnectTask(), 1000, 15000)
+        mReconnectTimer!!.schedule(ReconnectTask(), 15000, 15000)
     }
 
     private fun stopReconnectTimer() {
@@ -474,7 +513,7 @@ class BleService : Service(), LocationListener {
             }
         )
 
-        write(QueueItem(BleCharacteristics.CHA_NAV_SPEED, speed.toString().toByteArray()))
+        write(QueueItem(BleCharacteristics.CHA_GPS_SPEED, speed.toString().toByteArray()))
     }
 
     private fun updateNotificationText(text: String) {
@@ -517,4 +556,21 @@ class BleService : Service(), LocationListener {
             .setOngoing(true)
         return mNotificationBuilder!!.build()
     }
+
+    fun toKeyValString(map: Map<String, String>): String {
+        var result = ""
+        var count = 1
+
+        for ((key, value) in map) {
+            result += "$key=$value"
+            if (count < map.size) {
+                result += "\n"
+            }
+            count++
+        }
+
+        return result
+    }
+
+
 }

@@ -108,7 +108,7 @@ class BitmapHelper {
                     if (nFgNeighbors >= 2)
                         canvas.drawPoint(x.toFloat(), y.toFloat(), paint)
                     // only dither when multiple grey pixels are found as a group
-                    if (x % 2 != y % 2 && hasGreyNeighbor) {
+                    if (x % 3 == 0 && y % 2 == 0 && hasGreyNeighbor) {
                         canvas.drawPoint(x.toFloat(), y.toFloat(), paint)
                     }
                 }
