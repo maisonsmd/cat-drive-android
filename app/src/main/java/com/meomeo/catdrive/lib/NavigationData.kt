@@ -15,7 +15,7 @@ data class NavigationDirection(
 
 @Parcelize
 @Serializable
-data class NavigationEta(
+data class NavigationTripInfo(
     val eta: String? = null,
     val ete: String? = null,
     val distance: String? = null
@@ -63,7 +63,7 @@ data class NavigationTimestamp(
 @Serializable
 data class NavigationData(
     var nextDirection: NavigationDirection = NavigationDirection(),
-    var eta: NavigationEta = NavigationEta(),
+    var tripInfo: NavigationTripInfo = NavigationTripInfo(),
     var actionIcon: NavigationIcon = NavigationIcon(),
     @Mutable
     var postTime: NavigationTimestamp = NavigationTimestamp(),
@@ -75,7 +75,7 @@ data class NavigationData(
     override fun hashCode(): Int {
         var result = super.hashCode()
         result = 31 * result + nextDirection.hashCode()
-        result = 31 * result + eta.hashCode()
+        result = 31 * result + tripInfo.hashCode()
         result = 31 * result + actionIcon.hashCode()
         result = 31 * result + postTime.hashCode()
         return result

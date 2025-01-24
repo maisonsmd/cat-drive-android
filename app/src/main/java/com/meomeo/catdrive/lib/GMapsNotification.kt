@@ -108,7 +108,7 @@ internal class GMapsNotification(cx: Context, sbn: StatusBarNotification) : Navi
             val etaList = etaText.text.split("·")
             if (etaList.size == 3) {
                 val distance = etaList[1].trim()
-                data.eta = NavigationEta(etaList[2].removeSuffix("ETA").trim(), etaList[0].trim(), distance)
+                data.tripInfo = NavigationTripInfo(etaList[2].removeSuffix("ETA").trim(), etaList[0].trim(), distance)
             }
         }
 

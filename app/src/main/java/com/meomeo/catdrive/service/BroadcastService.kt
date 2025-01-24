@@ -11,20 +11,20 @@ import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothGatt
 import android.bluetooth.BluetoothGattCallback
 import android.bluetooth.BluetoothGattCharacteristic
-import android.bluetooth.BluetoothGattDescriptor
 import android.bluetooth.BluetoothManager
 import android.bluetooth.BluetoothProfile
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import android.graphics.Bitmap
 import android.graphics.Color
 import android.location.Location
 import android.location.LocationListener
 import android.location.LocationManager
 import android.os.Binder
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
 import android.util.Size
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import com.meomeo.catdrive.MainActivity
@@ -36,15 +36,11 @@ import com.meomeo.catdrive.lib.BleWriteQueue
 import com.meomeo.catdrive.lib.BleWriteQueue.QueueItem
 import com.meomeo.catdrive.lib.Intents
 import com.meomeo.catdrive.lib.NavigationData
+import com.meomeo.catdrive.utils.Misc
 import com.meomeo.catdrive.utils.PermissionCheck
 import timber.log.Timber
-import java.security.MessageDigest
-import java.security.NoSuchAlgorithmException
-import java.util.Timer
-import java.util.TimerTask
 import java.util.UUID
 import kotlin.math.ceil
-
 
 @SuppressLint("MissingPermission")
 class BleService : Service(), LocationListener {
@@ -57,12 +53,9 @@ class BleService : Service(), LocationListener {
         fun getService(): BleService = this@BleService
     }
 
-
     private lateinit var mAdapter: BluetoothAdapter
     private var mNotificationBuilder: Notification.Builder? = null
-    private var mRunInBackground: Boolean = false
-    private var mPingTimer: Timer? = null
-    private var mReconnectTimer: Timer? = null
+    private var mIsBackgroundRunningEnabled: Boolean = false
     private var mFirstPing: Boolean = true
     private var mConnectionState = BluetoothProfile.STATE_DISCONNECTED
     private var mDevice: BluetoothDevice? = null
@@ -72,6 +65,8 @@ class BleService : Service(), LocationListener {
     private var mDataWriteQueue: BleWriteQueue = BleWriteQueue()
     private var mIsSending: Boolean = false
     private var mIconMap: MutableMap<String, ByteArray> = mutableMapOf()
+    private val mHandler = Handler(Looper.getMainLooper())
+    private val mRunnable = Runnable { onTimerTick() }
 
     private val navigationReceiver: BroadcastReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent) {
@@ -80,72 +75,13 @@ class BleService : Service(), LocationListener {
         }
     }
 
-    val connectedDevice: BluetoothDevice?
-        get() = mDevice
-
-    var runInBackground
-        get() = mRunInBackground
-        private set(value) {
-            if (mRunInBackground == value)
-                return
-            mRunInBackground = value
-            LocalBroadcastManager.getInstance(applicationContext).sendBroadcast(
-                Intent(Intents.BACKGROUND_SERVICE_STATUS).apply {
-                    putExtra("service", this::class.java.simpleName)
-                    putExtra("run_in_background", value)
-                }
-            )
-        }
-
-    inner class ReconnectTask : TimerTask() {
-        override fun run() {
-            Timber.d("reconnect timer elapsed")
-            if (mConnectionState != BluetoothProfile.STATE_DISCONNECTED) {
-                Timber.w("Why this timer is still running?")
-//                stopReconnectTimer()
-                return
-            }
-            if (!PermissionCheck.checkBluetoothPermissions(applicationContext)) {
-                Timber.w("No BT permissions, stop reconnect timer!")
-                stopReconnectTimer()
-                return
-            }
-            if (mConnectionState != BluetoothProfile.STATE_DISCONNECTED) {
-                stopReconnectTimer()
-                return
-            }
-
-            Timber.d("Trying to connect to last device...")
-            if (PermissionCheck.isBluetoothEnabled(applicationContext))
-                connectToLastDevice()
-        }
-    }
-
-    inner class PingTask : TimerTask() {
-        override fun run() {
-            Timber.d("Ping timer elapsed")
-            if (mConnectionState != BluetoothProfile.STATE_CONNECTED) {
-                Timber.w("This timer should not be running!!")
-//                stopPingTimer()
-                return
-            }
-            if (mFirstPing) {
-                // resend prefs just in case the device did not received the prefs at first connection
-                sendPreferencesToDevice()
-                mFirstPing = false
-            } else if (mLastNavigationData != null) {
-                sendToDevice(mLastNavigationData)
-            }
-        }
-    }
-
     override fun onBind(intent: Intent?): IBinder? {
         // Bind by activity
-        if (intent?.action == Intents.BIND_LOCAL_SERVICE) {
-            return mBinder
-        }
+         if (intent?.action == Intents.BIND_LOCAL_SERVICE) {
+             return mBinder
+         }
         // Bind by OS
-        return null
+         return null
     }
 
     override fun onCreate() {
@@ -158,7 +94,7 @@ class BleService : Service(), LocationListener {
         Timber.v("onStartCommand: $intent")
 
         if (intent?.action == Intents.ENABLE_SERVICES) {
-            runInBackground = true
+            backgroundRunningEnabled = true
             startForeground(NOTIFICATION_ID, buildForegroundNotification())
 
             LocalBroadcastManager.getInstance(this)
@@ -166,22 +102,23 @@ class BleService : Service(), LocationListener {
 
             subscribeToLocationUpdates()
 
-            if (mConnectionState == BluetoothProfile.STATE_DISCONNECTED)
-                startReconnectTimer()
+            if (!mHandler.hasCallbacks(mRunnable))
+                onTimerTick()
         }
 
         if (intent?.action == Intents.DISABLE_SERVICES) {
-            runInBackground = false
+            backgroundRunningEnabled = false
             disconnect()
             unsubscribeFromLocationUpdates()
 
             LocalBroadcastManager.getInstance(this).unregisterReceiver(navigationReceiver)
             mNotificationBuilder = null
 
+            if (mHandler.hasCallbacks(mRunnable))
+                mHandler.removeCallbacks(mRunnable)
+
             stopForeground(STOP_FOREGROUND_REMOVE)
             stopSelf()
-            stopPingTimer()
-            stopReconnectTimer()
         }
 
         if (intent?.action == Intents.CONNECT_DEVICE) {
@@ -190,7 +127,7 @@ class BleService : Service(), LocationListener {
                 connect(device)
             }
 
-            if (!runInBackground)
+            if (!backgroundRunningEnabled)
                 return START_NOT_STICKY
         }
 
@@ -199,11 +136,63 @@ class BleService : Service(), LocationListener {
                 disconnect()
             }
 
-            if (!runInBackground)
+            if (!backgroundRunningEnabled)
                 return START_NOT_STICKY
         }
 
         return START_STICKY
+    }
+
+    val connectedDevice: BluetoothDevice?
+        get() = if (mConnectionState == BluetoothProfile.STATE_CONNECTED) mDevice else null
+
+    var backgroundRunningEnabled
+        get() = mIsBackgroundRunningEnabled
+        private set(value) {
+            if (mIsBackgroundRunningEnabled == value)
+                return
+            mIsBackgroundRunningEnabled = value
+            LocalBroadcastManager.getInstance(applicationContext).sendBroadcast(
+                Intent(Intents.BACKGROUND_SERVICE_STATUS).apply {
+                    putExtra("service", this::class.java.simpleName)
+                    putExtra("run_in_background", value)
+                }
+            )
+        }
+
+    private fun onTimerTick() {
+        ping()
+        checkReconnect()
+        mHandler.postDelayed(mRunnable,15000)
+    }
+
+    private fun checkReconnect() {
+        if (mConnectionState != BluetoothProfile.STATE_DISCONNECTED) {
+            return
+        }
+        if (!PermissionCheck.checkBluetoothPermissions(applicationContext)) {
+            return
+        }
+        if (mConnectionState != BluetoothProfile.STATE_DISCONNECTED) {
+            return
+        }
+
+        Timber.d("Trying to connect to last device...")
+        if (PermissionCheck.isBluetoothEnabled(applicationContext))
+            connectToLastDevice()
+    }
+
+    private fun ping() {
+        if (mConnectionState != BluetoothProfile.STATE_CONNECTED) {
+            return
+        }
+        if (mFirstPing) {
+            // resend prefs just in case the device did not received the prefs at first connection
+            sendPreferencesToDevice()
+            mFirstPing = false
+        } else if (mLastNavigationData != null) {
+            sendToDevice(mLastNavigationData)
+        }
     }
 
     private val gattCallback = object : BluetoothGattCallback() {
@@ -213,7 +202,7 @@ class BleService : Service(), LocationListener {
             if (newState == BluetoothProfile.STATE_CONNECTED) {
                 // successfully connected to the GATT Server
                 // Attempts to discover services after successful connection.
-                Timber.i("onConnectionStateChange: Connected! ${mDevice}, ${mBluetoothGatt}")
+                Timber.i("onConnectionStateChange: Connected! ${mDevice?.address}")
                 mBluetoothGatt?.discoverServices()
                 mConnectionState = BluetoothProfile.STATE_CONNECTING
             } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
@@ -225,8 +214,6 @@ class BleService : Service(), LocationListener {
                 }
 
                 updateNotificationText("No device connected")
-                startReconnectTimer()
-                stopPingTimer()
 
                 LocalBroadcastManager.getInstance(applicationContext).sendBroadcast(
                     Intent(Intents.CONNECTION_UPDATE).apply {
@@ -251,9 +238,8 @@ class BleService : Service(), LocationListener {
                 mIconMap.clear()
 
                 updateNotificationText("Connected to ${mDevice!!.name}")
-                stopReconnectTimer()
-                startPingTimer()
                 sendPreferencesToDevice()
+                mFirstPing = true
 
                 LocalBroadcastManager.getInstance(applicationContext).sendBroadcast(
                     Intent(Intents.CONNECTION_UPDATE).apply {
@@ -284,9 +270,8 @@ class BleService : Service(), LocationListener {
     }
 
     private fun write(item: QueueItem) {
-        Timber.d("writing ${item.uuid}=${item.data.toString(Charsets.UTF_8)}")
+//        Timber.d("writing ${item.uuid}=${item.data.toString(Charsets.UTF_8)}")
         if (mConnectionState != BluetoothProfile.STATE_CONNECTED) {
-//            Timber.e("write: not connected")
             return
         }
 
@@ -333,10 +318,12 @@ class BleService : Service(), LocationListener {
             mAdapter.getRemoteDevice(address)?.let {
                 connect(it)
             }
+        } else {
+            Timber.w("No last device found")
         }
     }
 
-    fun connect(device: BluetoothDevice) {
+    private fun connect(device: BluetoothDevice) {
         Timber.i("Connecting to device $device")
         mDevice = device
         mBluetoothGatt =
@@ -347,9 +334,6 @@ class BleService : Service(), LocationListener {
     }
 
     fun disconnect() {
-        stopPingTimer()
-        stopReconnectTimer()
-
         if (mConnectionState == BluetoothProfile.STATE_CONNECTED) {
             Timber.i("Disconnecting from device")
             mIsSending = false
@@ -381,45 +365,36 @@ class BleService : Service(), LocationListener {
         )
 
         write(
-            QueueItem(BleCharacteristics.CHA_SETTINGS, toKeyValString(map).toByteArray())
+            QueueItem(BleCharacteristics.CHA_SETTINGS, Misc.toKeyValString(map).toByteArray())
         )
     }
 
     fun sendToDevice(data: NavigationData?) {
-        fun sanitize(str: String): String {
-            // Remove non-breaking space
-            return str.replace("\u00a0", " ").replace("\n", " ").replace("…", "...")
-        }
-
         val bitmap = data?.actionIcon?.bitmap
 
-        var compressed: ByteArray? = bitmap?.let {
-            val helper = BitmapHelper()
-            helper.toBlackAndWhiteBuffer(
-                helper.compressBitmap(
+        val compressed: ByteArray? = bitmap?.let {
+            BitmapHelper.toBlackAndWhiteBuffer(
+                BitmapHelper.compressBitmap(
                     bitmap,
                     Size(64, 62)
                 )
             )
         }
 
-        var iconHash = ""
-        if (compressed != null) {
-            iconHash = md5(compressed)
-            iconHash = iconHash.substring(iconHash.length - 10, iconHash.length)
-        }
+        val iconHash = if (compressed != null) Misc.md5(compressed)
+            .let { it.substring(it.length - 10, it.length) } else ""
 
         val map = mapOf(
-            "nextRd" to sanitize(data?.nextDirection?.nextRoad ?: ""),
-            "nextRdDesc" to sanitize(data?.nextDirection?.nextRoadAdditionalInfo ?: ""),
-            "distToNext" to sanitize(data?.nextDirection?.distance ?: ""),
-            "totalDist" to sanitize(data?.eta?.distance ?: ""),
-            "eta" to sanitize(data?.eta?.eta ?: ""),
-            "ete" to sanitize(data?.eta?.ete ?: ""),
-            "iconHash" to (iconHash)
+            "nextRd" to Misc.sanitize(data?.nextDirection?.nextRoad ?: ""),
+            "nextRdDesc" to Misc.sanitize(data?.nextDirection?.nextRoadAdditionalInfo ?: ""),
+            "distToNext" to Misc.sanitize(data?.nextDirection?.distance ?: ""),
+            "totalDist" to Misc.sanitize(data?.tripInfo?.distance ?: ""),
+            "eta" to Misc.sanitize(data?.tripInfo?.eta ?: ""),
+            "ete" to Misc.sanitize(data?.tripInfo?.ete ?: ""),
+            "iconHash" to iconHash
         )
 
-        write(QueueItem(BleCharacteristics.CHA_NAV, toKeyValString(map).toByteArray()))
+        write(QueueItem(BleCharacteristics.CHA_NAV, Misc.toKeyValString(map).toByteArray()))
 
         // Only send once
         if (iconHash != "" && compressed != null && !mIconMap.containsKey(iconHash)) {
@@ -429,38 +404,13 @@ class BleService : Service(), LocationListener {
 
                 compressed.let {
                     val withIconHash = ("$iconHash;").toByteArray()
-                    Timber.w("it size: ${it.size}")
                     write(QueueItem(BleCharacteristics.CHA_NAV_TBT_ICON, withIconHash + it, true))
                 }
             }
         } else {
-            Timber.i("Icon $iconHash already sent before")
+            Timber.i("Icon $iconHash is already sent before")
         }
     }
-
-    private fun md5(s: ByteArray): String {
-        return try {
-            // Create MD5 Hash
-            val digest = MessageDigest.getInstance("MD5")
-            digest.update(s)
-            val messageDigest = digest.digest()
-
-            // Create Hex String
-            val hexString = StringBuilder()
-            for (aMessageDigest in messageDigest) {
-                var h = Integer.toHexString(0xFF and aMessageDigest.toInt())
-                while (h.length < 2) {
-                    h = "0$h"
-                }
-                hexString.append(h)
-            }
-            hexString.toString()
-        } catch (e: NoSuchAlgorithmException) {
-            e.printStackTrace()
-            ""
-        }
-    }
-
 
     private fun subscribeToLocationUpdates() {
         if (PermissionCheck.checkLocationAccessPermission(applicationContext)) {
@@ -474,38 +424,9 @@ class BleService : Service(), LocationListener {
         manager.removeUpdates(this)
     }
 
-    private fun startPingTimer() {
-        stopPingTimer()
-        mPingTimer = Timer()
-        mFirstPing = true
-        mPingTimer!!.schedule(PingTask(), 1000, 25000)
-    }
-
-    private fun stopPingTimer() {
-        if (mPingTimer != null) {
-            mPingTimer!!.cancel()
-            mPingTimer!!.purge()
-            mPingTimer = null
-        }
-    }
-
-    private fun startReconnectTimer() {
-        stopReconnectTimer()
-        mReconnectTimer = Timer()
-        mReconnectTimer!!.schedule(ReconnectTask(), 15000, 15000)
-    }
-
-    private fun stopReconnectTimer() {
-        if (mReconnectTimer != null) {
-            mReconnectTimer!!.cancel()
-            mReconnectTimer!!.purge()
-            mReconnectTimer = null
-        }
-    }
-
     override fun onLocationChanged(location: Location) {
         val speed = ceil(location.speed * 3600f / 1000f).toInt()
-        Timber.d("Speed: $speed")
+//        Timber.d("Speed: $speed")
 
         LocalBroadcastManager.getInstance(applicationContext).sendBroadcast(
             Intent(Intents.GPS_UPDATE).apply {
@@ -521,6 +442,7 @@ class BleService : Service(), LocationListener {
             return
         val notificationManager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
         mNotificationBuilder!!.setContentText(text)
+        mNotificationBuilder!!.setOnlyAlertOnce(true)
         notificationManager.notify(NOTIFICATION_ID, mNotificationBuilder!!.build())
     }
 
@@ -553,24 +475,8 @@ class BleService : Service(), LocationListener {
             .setSmallIcon(R.drawable.catface)
             .setForegroundServiceBehavior(Notification.FOREGROUND_SERVICE_IMMEDIATE)
             .setContentIntent(pendingIntent)
+            .setOnlyAlertOnce(true)
             .setOngoing(true)
         return mNotificationBuilder!!.build()
     }
-
-    fun toKeyValString(map: Map<String, String>): String {
-        var result = ""
-        var count = 1
-
-        for ((key, value) in map) {
-            result += "$key=$value"
-            if (count < map.size) {
-                result += "\n"
-            }
-            count++
-        }
-
-        return result
-    }
-
-
 }

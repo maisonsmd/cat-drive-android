@@ -84,7 +84,7 @@ class MainActivity : AppCompatActivity() {
 
             Timber.d("$name connected")
             mViewModel.connectedDevice.postValue(mBroadcastService!!.connectedDevice)
-            mViewModel.serviceRunInBackground.postValue(mBroadcastService!!.runInBackground)
+            mViewModel.serviceRunInBackground.postValue(mBroadcastService!!.backgroundRunningEnabled)
         }
 
         override fun onServiceDisconnected(name: ComponentName?) {

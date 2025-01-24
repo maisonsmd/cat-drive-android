@@ -1,19 +1,15 @@
 package com.meomeo.catdrive.ui.home
 
 import android.os.Bundle
-import android.util.Size
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.core.graphics.drawable.toBitmap
-import androidx.core.graphics.drawable.toDrawable
-import androidx.core.graphics.scale
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
 import com.meomeo.catdrive.MainActivity
 import com.meomeo.catdrive.R
 import com.meomeo.catdrive.databinding.FragmentHomeBinding
-import com.meomeo.catdrive.lib.BitmapHelper
 import com.meomeo.catdrive.lib.NavigationData
 import com.meomeo.catdrive.ui.ActivityViewModel
 import com.meomeo.catdrive.utils.ServiceManager
@@ -55,7 +51,7 @@ class HomeFragment : Fragment() {
         binding.txtRoadName.text = data.nextDirection.nextRoad
         binding.txtRoadAdditionalInfo.text = data.nextDirection.nextRoadAdditionalInfo
         binding.txtDistance.text = data.nextDirection.distance
-        binding.txtEta.text = "${data.eta.ete} - ${data.eta.eta} - ${data.eta.distance}"
+        binding.txtEta.text = "${data.tripInfo.ete} - ${data.tripInfo.eta} - ${data.tripInfo.distance}"
     }
 
     override fun onCreateView(
